@@ -1,6 +1,7 @@
 # 聊天室项目启动方法
 
-本项目是一个实时聊天应用程序，前端使用 Vue.js 构建，后端使用 Node.js 和 Socket.IO。
+本项目是一个简单的实时聊天应用程序，前端使用 Vue.js 构建，后端使用 Node.js 和 Socket.IO。
+项目作者是Tenz，用于数据库实践的开发（场景为使用WIndow远程连接Linux数据库）
 
 ## 开始之前
 
@@ -15,7 +16,7 @@
 1.  **克隆项目仓库** (如果您尚未克隆):
 
     ```bash
-    git clone <您的项目仓库地址>
+    git clone https://github.com/Tanz-coding/mychat.git
     cd mychat
     ```
 
