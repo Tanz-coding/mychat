@@ -1,0 +1,102 @@
+{
+  "name": "chatroom",
+  "version": "1.1.0",
+  "keywords": [
+    "imChat",
+    "socket",
+    "express",
+    "vue"
+  ],
+  "author": "@tenz",
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint",
+    "prod": "node server/index.js",
+    "start": "concurrently \"npm run serve\" \"npm run prod\"",
+    "electron:dev": "npm run build && electron .",
+    "electron:build": "npm run build && electron-builder -w"
+  },
+  "dependencies": {
+    "core-js": "^3.6.5",
+    "express": "^4.21.1",
+    "ioredis": "^5.4.1",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.9.7",
+    "nedb": "^1.8.0",
+    "socket.io-client": "^4.4.0",
+    "socket.io": "^4.4.0",
+    "jsonwebtoken": "^8.5.1",
+    "vue": "^2.6.11"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~4.5.0",
+    "@vue/cli-plugin-eslint": "~4.5.0",
+    "@vue/cli-service": "~4.5.0",
+    "babel-eslint": "^10.1.0",
+    "electron": "^30.0.7",
+    "electron-builder": "^24.13.3",
+    "concurrently": "^9.2.1",
+    "eslint": "^6.7.2",
+    "eslint-plugin-vue": "^6.2.2",
+    "less": "^3.0.4",
+    "less-loader": "^5.0.0",
+    "vue-template-compiler": "^2.6.11"
+  },
+  "build": {
+    "appId": "com.mychat.desktop",
+    "productName": "MyChat",
+    "files": [
+      "dist/**/*",
+      "server/**/*",
+      "electron/**/*",
+      "package.json",
+      "db/config.json",
+      "db/news_schema.sql",
+      "db/generate_mock_data.js",
+      "!server/backups/**/*",
+      "!upload/**/*",
+      "!db/**/*.db",
+      "!db/**/*.sqlite",
+      "!**/*.log"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "server/**/*"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/app.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true
+    }
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "plugin:vue/essential",
+      "eslint:recommended"
+    ],
+    "parserOptions": {
+      "parser": "babel-eslint"
+    },
+    "rules": {}
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}
