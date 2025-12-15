@@ -53,6 +53,44 @@ const SEED_COMMENT_TEMPLATES = [
   '细节全面，收藏了。'
 ];
 
+async function chunkedInsert(conn, sql, rows, chunkSize = 1000) {
+  if (!rows || !rows.length) {
+    return { affected: 0 };
+  }
+  let affected = 0;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const [result] = await conn.query(sql, [chunk]);
+    affected += result && result.affectedRows ? result.affectedRows : chunk.length;
+  }
+  return { affected };
+}
+
+async function chunkedInsertWithIds(conn, sql, rows, chunkSize = 500) {
+  if (!rows || !rows.length) {
+    return { affected: 0, ids: [] };
+  }
+  const ids = [];
+  let affected = 0;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const [result] = await conn.query(sql, [chunk]);
+    const count = result && result.affectedRows ? result.affectedRows : chunk.length;
+    const startId = result && result.insertId ? Number(result.insertId) : null;
+    if (startId !== null) {
+      for (let offset = 0; offset < count; offset++) {
+        ids.push(startId + offset);
+      }
+    }
+    affected += count;
+  }
+  if (!ids.length && affected) {
+    const [rowsWithIds] = await conn.query('SELECT id FROM news ORDER BY id ASC');
+    return { affected, ids: rowsWithIds.map(item => item.id) };
+  }
+  return { affected, ids };
+}
+
 async function ensureBackupDir() {
   try {
     await fs.mkdir(BACKUP_DIR, { recursive: true });
@@ -432,7 +470,74 @@ async function seedNewsData(admin, overrides = {}) {
     throw Object.assign(new Error('仅 root 用户可以生成测试数据'), { status: 403 });
   }
 
-  const options = Object.assign({}, SEED_DEFAULTS, overrides || {});
+  const mode = overrides && (overrides.mode || (overrides.massive ? 'massive' : null)) || 'default';
+  const options = { ...SEED_DEFAULTS };
+  const massTarget = Number(overrides && overrides.targetTotal) || 100000;
+
+  if (mode === 'massive') {
+    const plannedUsers = Math.max(800, Math.min(6000, Number(overrides.users) || Math.floor(massTarget * 0.04)));
+    let plannedCategories = Math.max(20, Math.min(240, Number(overrides.categories) || Math.floor(massTarget * 0.003)));
+    let remainder = massTarget - (plannedUsers + plannedCategories);
+    if (remainder < 1000) {
+      throw new Error('目标总量过小，无法生成指定规模的测试数据');
+    }
+    let plannedNews = Math.max(2000, Math.floor(remainder * 0.55));
+    if (plannedNews >= remainder) {
+      plannedNews = remainder - 1;
+    }
+    if (plannedNews < 1) {
+      plannedNews = 1;
+    }
+    const totalComments = massTarget - (plannedUsers + plannedCategories + plannedNews);
+    if (totalComments < 0) {
+      throw new Error('生成计划无效，请调整参数');
+    }
+    Object.assign(options, {
+      users: plannedUsers,
+      categories: plannedCategories,
+      news: plannedNews,
+      totalComments
+    });
+  } else if (overrides && Object.keys(overrides).length) {
+    if (overrides.users) {
+      const val = Number(overrides.users);
+      if (!Number.isNaN(val) && val > 0) {
+        options.users = val;
+      }
+    }
+    if (overrides.categories) {
+      const val = Number(overrides.categories);
+      if (!Number.isNaN(val) && val > 0) {
+        options.categories = val;
+      }
+    }
+    if (overrides.news) {
+      const val = Number(overrides.news);
+      if (!Number.isNaN(val) && val > 0) {
+        options.news = val;
+      }
+    }
+    if (overrides.commentsPerNews) {
+      const val = Number(overrides.commentsPerNews);
+      if (!Number.isNaN(val) && val > 0) {
+        options.commentsPerNews = val;
+      }
+    }
+  }
+
+  if (mode === 'massive') {
+    if (!Number.isFinite(options.totalComments)) {
+      options.totalComments = Math.max(0, massTarget - (options.users + options.categories + options.news));
+    }
+  } else {
+    options.commentsPerNews = Math.max(1, Math.min(options.commentsPerNews, options.users));
+    options.totalComments = options.news * options.commentsPerNews;
+  }
+  const planMeta = {
+    mode,
+    targetTotal: mode === 'massive' ? massTarget : null,
+    parameters: { ...options }
+  };
   const resetSummary = await resetNewsData(admin);
 
   const conn = await getConnection();
@@ -460,11 +565,13 @@ async function seedNewsData(admin, overrides = {}) {
       ]);
     }
     if (testerRows.length) {
-      const [result] = await conn.query(
+      const insertUsers = await chunkedInsert(
+        conn,
         'INSERT INTO users (username, password_hash, role, avatar_url, email) VALUES ?',
-        [testerRows]
+        testerRows,
+        1000
       );
-      summary.users = result && result.affectedRows ? result.affectedRows : testerRows.length;
+      summary.users = insertUsers.affected;
     }
 
     const [testerUsers] = await conn.query(
@@ -483,11 +590,13 @@ async function seedNewsData(admin, overrides = {}) {
     }
     const categoryRows = chosenCategories.map(name => [name, `${name} 相关资讯`]);
     if (categoryRows.length) {
-      const [categoryResult] = await conn.query(
+      const categoryInsert = await chunkedInsert(
+        conn,
         'INSERT INTO news_categories (name, description) VALUES ?',
-        [categoryRows]
+        categoryRows,
+        500
       );
-      summary.categories = categoryResult && categoryResult.affectedRows ? categoryResult.affectedRows : categoryRows.length;
+      summary.categories = categoryInsert.affected;
     }
 
     const [categoryRecords] = await conn.query('SELECT id FROM news_categories ORDER BY id ASC');
@@ -522,33 +631,35 @@ async function seedNewsData(admin, overrides = {}) {
 
     let newsIds = [];
     if (newsRows.length) {
-      const [newsResult] = await conn.query(
+      const newsInsert = await chunkedInsertWithIds(
+        conn,
         'INSERT INTO news (title, slug, summary, content, author_id, category_id, status, cover_image, published_at, created_at) VALUES ?',
-        [newsRows]
+        newsRows,
+        200
       );
-      summary.news = newsResult && newsResult.affectedRows ? newsResult.affectedRows : newsRows.length;
-      const startId = newsResult.insertId;
-      newsIds = Array.from({ length: summary.news }, (_, idx) => startId + idx);
+      summary.news = newsInsert.affected;
+      newsIds = newsInsert.ids;
     }
 
     const commentRows = [];
     const commentCounter = new Map();
     if (newsIds.length) {
-      newsIds.forEach((newsId, idx) => {
-        const target = Math.max(1, Math.min(options.commentsPerNews, testerIds.length));
-        for (let i = 0; i < target; i++) {
-          const userId = testerIds[(idx + i) % testerIds.length];
-          const content = buildSeedComment();
-          commentRows.push([newsId, userId, content, 0]);
-          commentCounter.set(newsId, (commentCounter.get(newsId) || 0) + 1);
-        }
-      });
+      const totalComments = Math.max(0, Number(options.totalComments) || 0);
+      for (let i = 0; i < totalComments; i++) {
+        const newsId = newsIds[i % newsIds.length];
+        const userId = testerIds[i % testerIds.length];
+        const content = buildSeedComment();
+        commentRows.push([newsId, userId, content, 0]);
+        commentCounter.set(newsId, (commentCounter.get(newsId) || 0) + 1);
+      }
       if (commentRows.length) {
-        const [commentResult] = await conn.query(
+        const commentInsert = await chunkedInsert(
+          conn,
           'INSERT INTO comments (news_id, user_id, content, is_deleted) VALUES ?',
-          [commentRows]
+          commentRows,
+          2000
         );
-        summary.comments = commentResult && commentResult.affectedRows ? commentResult.affectedRows : commentRows.length;
+        summary.comments = commentInsert.affected;
       }
       const metricRows = newsIds.map((id, idx) => {
         const viewCount = 180 + (idx % 10) * 45;
@@ -558,9 +669,11 @@ async function seedNewsData(admin, overrides = {}) {
         return [id, viewCount, commentCount, likeCount, Number(score.toFixed(2))];
       });
       if (metricRows.length) {
-        await conn.query(
+        await chunkedInsert(
+          conn,
           'INSERT INTO news_metrics (news_id, view_count, comment_count, like_count, score) VALUES ?',
-          [metricRows]
+          metricRows,
+          2000
         );
       }
     }
@@ -573,12 +686,18 @@ async function seedNewsData(admin, overrides = {}) {
     conn.release();
   }
 
+  summary.totalEntries = summary.users + summary.categories + summary.news + summary.comments;
+  planMeta.parameters = { ...options };
+  planMeta.totalEntries = summary.totalEntries;
+  planMeta.generatedAt = seededAt;
+
   await clearNewsCaches();
 
   return {
     reset: resetSummary,
     seededAt,
-    created: summary
+    created: summary,
+    plan: planMeta
   };
 }
 
@@ -614,6 +733,10 @@ function buildWhere(filters, params) {
     where.push('n.published_at <= ?');
     params.push(filters.endDate);
   }
+  if (filters.authorId) {
+    where.push('n.author_id = ?');
+    params.push(filters.authorId);
+  }
   return where.length ? `WHERE ${where.join(' AND ')}` : '';
 }
 
@@ -639,7 +762,15 @@ async function listNews(filters = {}) {
   `;
   params.push(pageSize, offset);
   const rows = await query(sql, params);
-  const countSql = `SELECT COUNT(1) as total FROM news n ${whereSql}`;
+  
+  // Fix: countSql must include joins because whereSql might reference joined tables
+  const countSql = `
+    SELECT COUNT(1) as total 
+    FROM news n 
+    JOIN users u ON u.id = n.author_id
+    JOIN news_categories c ON c.id = n.category_id
+    ${whereSql}
+  `;
   const totalRows = await query(countSql, params.slice(0, params.length - 2));
   return {
     data: rows,
@@ -953,10 +1084,11 @@ async function getRecentNews(limit = 10) {
 }
 
 async function getStats() {
+  // Count all articles (regardless of published/draft) so admin heatmap always has data
   const perCategory = await query(
     `SELECT c.id AS categoryId, c.name AS categoryName, COUNT(n.id) AS newsCount
      FROM news_categories c
-      JOIN news n ON n.category_id = c.id AND n.status = 'published'
+      LEFT JOIN news n ON n.category_id = c.id
       GROUP BY c.id, c.name
       HAVING newsCount > 0
       ORDER BY newsCount DESC`
@@ -964,7 +1096,7 @@ async function getStats() {
   const perAuthor = await query(
     `SELECT u.id AS userId, u.username, COUNT(n.id) AS newsCount
       FROM users u
-      JOIN news n ON n.author_id = u.id AND n.status = 'published'
+      LEFT JOIN news n ON n.author_id = u.id
       GROUP BY u.id, u.username
       HAVING newsCount > 0
       ORDER BY newsCount DESC
@@ -993,10 +1125,22 @@ async function getAuditLogs(limit = 200) {
      LIMIT ?`,
     [limit]
   );
-  return rows.map(item => ({
-    ...item,
-    metadata: item.metadata ? JSON.parse(item.metadata) : null
-  }));
+  return rows.map(item => {
+    let metadata = null;
+    if (item.metadata) {
+      if (typeof item.metadata === 'string') {
+        try {
+          metadata = JSON.parse(item.metadata);
+        } catch (e) {
+          // 容错：元数据非 JSON 字符串时直接回传原值，避免阻断接口
+          metadata = item.metadata;
+        }
+      } else {
+        metadata = item.metadata;
+      }
+    }
+    return { ...item, metadata };
+  });
 }
 
 async function listCategories() {

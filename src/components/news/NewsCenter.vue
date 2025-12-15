@@ -1,315 +1,592 @@
 <template>
   <div class="news-center" :class="{'admin-mode': viewMode === 'admin'}">
-    <div class="news-side" v-if="viewMode !== 'admin'">
-      <div class="news-header">
-  <input v-model="filters.keyword" placeholder="搜索关键词" class="news-input" @keyup.enter="applyFilters" />
-  <select v-model="filters.categoryId" class="news-select" @change="applyFilters">
-          <option value="">全部分类</option>
-          <option v-for="category in categories" :key="category.id" :value="category.id">
-            {{ category.name }}
-          </option>
-        </select>
-  <select v-model="filters.sort" class="news-select" @change="applyFilters">
-          <option value="newest">按时间(新->旧)</option>
-          <option value="oldest">按时间(旧->新)</option>
-          <option value="hot">按热度</option>
-          <option value="commented">按评论</option>
-        </select>
-  <button class="news-button" @click="applyFilters">筛选</button>
-        <button class="news-button primary" @click="startCreate" v-if="token">发布新闻</button>
-      </div>
-      <div class="news-hot" v-if="hotNews.length">
-        <h4>热门新闻</h4>
-        <ul>
-          <li v-for="item in hotNews" :key="`hot-${item.id}`" @click="openDetail(item.id)">
-            <span class="title">{{ item.title }}</span>
-            <span class="metric">🔥 {{ item.score ? item.score.toFixed(0) : item.viewCount }}</span>
-          </li>
-        </ul>
-      </div>
-      <div class="news-hot" v-if="recentNews.length">
-        <h4>最新发布</h4>
-        <ul>
-          <li v-for="item in recentNews" :key="`recent-${item.id}`" @click="openDetail(item.id)">
-            <span class="title">{{ item.title }}</span>
-            <span class="metric">{{ formatDate(item.publishedAt) }}</span>
-          </li>
-        </ul>
+    <!-- 优化顶部导航栏，增加视觉层次 -->
+    <div class="top-nav" v-if="viewMode === 'list'">
+      <div class="nav-container">
+        <div class="nav-left">
+          <div class="brand-logo">📰</div>
+          <h1 class="brand-title">新闻中心</h1>
+        </div>
+        <div class="nav-actions">
+          <button class="action-btn action-btn--primary" @click="startCreate" v-if="token" title="发布新内容">
+            <span class="btn-icon">+</span>
+            <span class="btn-text">发布</span>
+          </button>
+          <button class="action-btn" @click="switchAdmin" v-if="isAdmin" title="管理后台">
+            <span class="btn-icon">⚙</span>
+          </button>
+        </div>
       </div>
     </div>
-  <div class="news-main" :class="{'admin-main': viewMode === 'admin'}">
-      <div v-if="viewMode === 'list'" class="news-list">
-        <div v-if="articles.length === 0" class="news-empty">暂无符合条件的新闻</div>
-        <div v-for="item in articles" :key="item.id" class="news-card" @click="openDetail(item.id)">
-          <div class="news-card-cover" v-if="item.coverImage">
-            <img :src="item.coverImage" alt="cover" />
+
+    <div class="news-main" :class="{'admin-main': viewMode === 'admin', 'list-main': viewMode === 'list'}">
+      <!-- 列表模式 -->
+      <div v-if="viewMode === 'list'" class="news-list-container">
+        <!-- 重新设计搜索栏，增加筛选选项 -->
+        <div class="search-section">
+          <div class="search-bar">
+            <img class="search-icon" :src="searchIcon" alt="搜索" loading="lazy" />
+            <input 
+              v-model="filters.keyword" 
+              placeholder="搜索文章标题、作者..." 
+              class="search-input"
+              @keyup.enter="applyFilters" 
+            />
+            <button v-if="filters.keyword" class="clear-btn" @click="filters.keyword = ''; applyFilters()">×</button>
           </div>
-          <div class="news-card-body">
-            <div class="news-card-title">{{ item.title }}</div>
-            <div class="news-card-meta">
-              <span>{{ formatDate(item.publishedAt) }}</span>
-              <span>作者: {{ item.author }}</span>
-              <span>分类: {{ item.categoryName }}</span>
-              <span>阅读: {{ item.viewCount || 0 }}</span>
-              <span>评论: {{ item.commentCount || 0 }}</span>
-            </div>
-            <div class="news-card-summary">{{ item.summary || '暂无摘要' }}</div>
+          <div class="filter-row" v-if="categories.length">
+            <button 
+              class="filter-chip" 
+              :class="{'filter-chip--active': filters.categoryId === '' && !filters.authorId}"
+              @click="filters.categoryId = ''; filters.authorId = ''; applyFilters()"
+            >
+              全部
+            </button>
+            <button 
+              v-for="cat in categories.slice(0, 6)" 
+              :key="cat.id"
+              class="filter-chip"
+              :class="{'filter-chip--active': filters.categoryId === cat.id}"
+              @click="filters.categoryId = cat.id; filters.authorId = ''; applyFilters()"
+            >
+              {{ cat.name }}
+            </button>
+            <button 
+              class="filter-chip" 
+              :class="{'filter-chip--active': filters.authorId && profile && filters.authorId === profile.id}"
+              @click="toggleMyArticles"
+              v-if="token && profile"
+            >
+              我的文章
+            </button>
           </div>
         </div>
-        <div class="news-pagination" v-if="pagination.total > pagination.pageSize">
-          <button class="news-button" :disabled="pagination.page === 1" @click="changePage(pagination.page - 1)">上一页</button>
-          <span>第 {{ pagination.page }} / {{ totalPages }} 页</span>
-          <button class="news-button" :disabled="pagination.page >= totalPages" @click="changePage(pagination.page + 1)">下一页</button>
+
+        <!-- 优化"常看的号"布局 -->
+        <div class="featured-section" v-if="hotNews.length">
+          <div class="section-header">
+            <h3 class="section-title">热门作者</h3>
+            <span class="section-badge">{{ hotNews.length }}</span>
+          </div>
+          <div class="author-grid">
+            <div 
+              class="author-card" 
+              v-for="item in hotNews.slice(0, 8)" 
+              :key="`hot-${item.id}`" 
+              @click="openDetail(item.id)"
+            >
+              <div class="author-avatar" :style="{background: stringToColor(item.author || item.title)}">
+                {{ (item.author || item.title).substring(0, 1) }}
+              </div>
+              <div class="author-info">
+                <div class="author-name">{{ (item.author || item.title).substring(0, 8) }}</div>
+                <div class="author-meta">{{ item.viewCount || 0 }} 阅读</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 重新设计文章卡片，更清爽的布局 -->
+        <div class="articles-section">
+          <div class="section-header">
+            <h3 class="section-title">最新文章</h3>
+            <div class="sort-controls">
+              <button 
+                class="sort-btn" 
+                :class="{'sort-btn--active': filters.sort === 'newest'}"
+                @click="filters.sort = 'newest'; applyFilters()"
+              >
+                最新
+              </button>
+              <button 
+                class="sort-btn" 
+                :class="{'sort-btn--active': filters.sort === 'hot'}"
+                @click="filters.sort = 'hot'; applyFilters()"
+              >
+                最热
+              </button>
+            </div>
+          </div>
+          
+          <div v-if="articles.length === 0" class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p class="empty-text">暂无文章</p>
+          </div>
+          
+          <div class="article-list">
+            <article 
+              v-for="item in articles" 
+              :key="item.id" 
+              class="article-card" 
+              @click="openDetail(item.id)"
+            >
+              <div class="article-header">
+                <div class="author-badge">
+                  <div class="author-avatar-sm" :style="{background: stringToColor(item.author)}">
+                    {{ (item.author || 'A').substring(0, 1) }}
+                  </div>
+                  <span class="author-name-sm">{{ item.author || '未知作者' }}</span>
+                </div>
+                <span class="article-time">{{ formatTimeAgo(item.publishedAt) }}</span>
+              </div>
+              
+              <div class="article-body">
+                <div class="article-content">
+                  <h2 class="article-title">{{ item.title }}</h2>
+                  <p class="article-excerpt" v-if="item.summary">{{ item.summary }}</p>
+                </div>
+                <div class="article-thumbnail" v-if="item.coverImage">
+                  <img :src="item.coverImage" :alt="item.title" />
+                </div>
+              </div>
+              
+              <div class="article-footer">
+                <span class="stat-item">
+                  <span class="stat-icon">👁</span>
+                  {{ item.viewCount || 0 }}
+                </span>
+                <span class="stat-item" v-if="item.commentCount > 0">
+                  <span class="stat-icon">💬</span>
+                  {{ item.commentCount }}
+                </span>
+                <span class="category-tag" v-if="item.categoryName">{{ item.categoryName }}</span>
+              </div>
+            </article>
+          </div>
+          
+          <!-- 改进分页样式 -->
+          <div class="pagination" v-if="pagination.total > pagination.pageSize">
+            <button 
+              class="pagination-btn" 
+              :disabled="pagination.page === 1" 
+              @click="changePage(pagination.page - 1)"
+            >
+              ← 上一页
+            </button>
+            <span class="pagination-info">第 {{ pagination.page }} / {{ totalPages }} 页</span>
+            <button 
+              class="pagination-btn" 
+              :disabled="pagination.page >= totalPages" 
+              @click="changePage(pagination.page + 1)"
+            >
+              下一页 →
+            </button>
+          </div>
         </div>
       </div>
-      <div v-else-if="viewMode === 'detail' && currentArticle" class="news-detail">
-        <div class="detail-header">
-          <h2>{{ currentArticle.title }}</h2>
-          <div class="detail-meta">
-            <span>{{ formatDate(currentArticle.publishedAt) }}</span>
-            <span>作者: {{ currentArticle.author }}</span>
-            <span>分类: {{ currentArticle.categoryName }}</span>
-            <span>阅读: {{ currentArticle.viewCount || 0 }}</span>
-            <span>评论: {{ currentArticle.commentCount || 0 }}</span>
-          </div>
-          <div class="detail-actions">
-            <button class="news-button" @click="backToList">返回列表</button>
-            <button class="news-button" v-if="canEdit" @click="startEdit">编辑</button>
-            <button class="news-button danger" v-if="canEdit" @click="confirmDelete">删除</button>
-          </div>
-        </div>
-        <div class="detail-content" v-html="currentArticle.content"></div>
-        <div class="detail-attachments" v-if="attachments.length">
-          <h4>附件</h4>
-          <ul>
-            <li v-for="file in attachments" :key="file.id">
-              <a :href="file.filePath" target="_blank" rel="noopener">{{ file.filename }}</a>
-              <span class="size">{{ formatSize(file.fileSize) }}</span>
-            </li>
-          </ul>
-        </div>
-        <div class="detail-comments">
-          <h4>评论 ({{ comments.pagination.total }})</h4>
-          <div class="comment-box" v-if="token">
-            <textarea v-model="newComment" placeholder="输入评论内容"></textarea>
-            <button class="news-button primary" @click="submitComment" :disabled="!newComment.trim()">发表评论</button>
-          </div>
-          <div v-else class="news-empty">登录后可参与评论</div>
-          <div class="comment-list">
-            <div class="comment-item" v-for="item in comments.data" :key="item.id">
-              <div class="comment-author">
-                <span>{{ item.username }}</span>
-                <span>{{ formatDate(item.createdAt) }}</span>
-                <button class="news-button danger" v-if="canDeleteComment(item)" @click="deleteComment(item)">删除</button>
+
+      <!-- 优化详情页设计 -->
+      <div v-else-if="viewMode === 'detail' && currentArticle" class="article-detail">
+        <div class="detail-container">
+          <!-- 返回按钮 -->
+          <button class="back-button" @click="backToList">
+            <span class="back-icon">←</span>
+            <span>返回列表</span>
+          </button>
+          
+          <!-- 文章头部 -->
+          <header class="detail-header">
+            <h1 class="detail-title">{{ currentArticle.title }}</h1>
+            <div class="detail-meta-bar">
+              <div class="meta-left">
+                <div class="author-badge-lg">
+                  <div class="author-avatar-lg" :style="{background: stringToColor(currentArticle.author)}">
+                    {{ (currentArticle.author || 'A').substring(0, 1) }}
+                  </div>
+                  <div class="author-details">
+                    <span class="author-name-lg">{{ currentArticle.author }}</span>
+                    <span class="publish-date">{{ formatDate(currentArticle.publishedAt) }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="comment-content">{{ item.content }}</div>
-            </div>
-          </div>
-          <div class="news-pagination" v-if="comments.pagination.total > comments.pagination.pageSize">
-            <button class="news-button" :disabled="comments.pagination.page === 1" @click="changeCommentPage(comments.pagination.page - 1)">上一页</button>
-            <span>第 {{ comments.pagination.page }} / {{ commentTotalPages }} 页</span>
-            <button class="news-button" :disabled="comments.pagination.page >= commentTotalPages" @click="changeCommentPage(comments.pagination.page + 1)">下一页</button>
-          </div>
-        </div>
-      </div>
-  <div v-else-if="(viewMode === 'create' || viewMode === 'edit')" class="news-editor">
-        <h2>{{ viewMode === 'create' ? '发布新闻' : '编辑新闻' }}</h2>
-        <div class="editor-form">
-          <label>标题</label>
-          <input v-model="editorForm.title" class="news-input" />
-          <label>分类</label>
-          <select v-model="editorForm.categoryId" class="news-select" :disabled="!categories.length">
-            <option disabled value="">
-              {{ categories.length ? '请选择分类' : '暂无分类，请先在管理后台创建' }}
-            </option>
-            <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
-          </select>
-          <label>封面图</label>
-          <div class="editor-upload">
-            <label class="upload-control">
-              <input type="file" class="file-input" @change="onCoverUpload" accept="image/*" />
-              <div class="upload-text">
-                <strong>选择封面</strong>
-                <span>支持 PNG/JPG，大小 &lt; 5MB</span>
+              <div class="meta-right">
+                <span class="view-count">
+                  <span class="meta-icon">👁</span>
+                  {{ currentArticle.viewCount || 0 }} 阅读
+                </span>
               </div>
-            </label>
-            <div class="upload-meta" v-if="coverFileName || editorForm.coverImage">
-              <span class="file-name">{{ coverFileName || '已上传封面' }}</span>
-              <button type="button" class="upload-remove" @click="clearCover">移除</button>
             </div>
-            <div class="preview" v-if="editorForm.coverImage">
-              <img :src="editorForm.coverImage" alt="cover" />
-            </div>
-          </div>
-          <label>摘要</label>
-          <textarea v-model="editorForm.summary" rows="3"></textarea>
-          <label>正文 (支持HTML)</label>
-          <textarea v-model="editorForm.content" rows="10"></textarea>
-          <label>附件 (pdf/txt)</label>
-          <div class="editor-upload">
-            <label class="upload-control">
-              <input type="file" class="file-input" multiple @change="onAttachmentUpload" accept=".pdf,.txt" />
-              <div class="upload-text">
-                <strong>上传附件</strong>
-                <span>支持 PDF / TXT，可多选</span>
-              </div>
-            </label>
-            <ul class="attachment-list" v-if="editorForm.attachments.length">
-              <li v-for="file in editorForm.attachments" :key="file.filePath">
-                {{ file.filename }}
-                <button class="news-button danger" @click="removeAttachment(file)">移除</button>
+          </header>
+          
+          <!-- 文章内容 -->
+          <div class="detail-content" v-html="currentArticle.content"></div>
+          
+          <!-- 附件区域 -->
+          <div class="attachments-box" v-if="attachments.length">
+            <h4 class="attachments-title">📎 附件下载</h4>
+            <ul class="attachments-list">
+              <li v-for="file in attachments" :key="file.id" class="attachment-item">
+                <a :href="file.filePath" target="_blank" rel="noopener" class="attachment-link">
+                  <span class="file-icon">📄</span>
+                  <span class="file-name">{{ file.filename }}</span>
+                  <span class="file-size">{{ formatSize(file.fileSize) }}</span>
+                </a>
               </li>
             </ul>
-            <div class="upload-hint" v-else>暂无附件</div>
           </div>
-          <div class="editor-actions">
-            <button class="news-button" @click="backToList">取消</button>
-            <button class="news-button primary" @click="submitEditor">保存</button>
+
+          <!-- 操作按钮 -->
+          <div class="detail-actions" v-if="canEdit">
+            <button class="action-btn action-btn--secondary" @click="startEdit">
+              <span class="btn-icon">✏️</span>
+              <span class="btn-text">编辑</span>
+            </button>
+            <button class="action-btn action-btn--danger" @click="confirmDelete">
+              <span class="btn-icon">🗑</span>
+              <span class="btn-text">删除</span>
+            </button>
+          </div>
+
+          <!-- 优化评论区设计 -->
+          <div class="comments-section">
+            <div class="comments-header">
+              <h3 class="comments-title">
+                <span class="comments-icon">💬</span>
+                评论 ({{ comments.pagination.total || 0 }})
+              </h3>
+              <button class="write-btn" @click="$refs.commentInput && $refs.commentInput.focus()" v-if="token">
+                写评论
+              </button>
+            </div>
+            
+            <!-- 评论输入框 -->
+            <div class="comment-composer" v-if="token">
+              <div class="composer-avatar" :style="{background: stringToColor(profile ? profile.username : 'User')}">
+                {{ profile ? profile.username.substring(0, 1) : 'U' }}
+              </div>
+              <div class="composer-input-area">
+                <textarea 
+                  ref="commentInput" 
+                  v-model="newComment" 
+                  placeholder="写下你的想法..."
+                  class="composer-textarea"
+                ></textarea>
+                <div class="composer-actions">
+                  <button 
+                    class="submit-comment-btn" 
+                    @click="submitComment" 
+                    :disabled="!newComment.trim()"
+                  >
+                    发布评论
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 评论列表 -->
+            <div class="comments-list">
+              <div v-if="comments.data.length === 0" class="empty-comments">
+                <p>还没有评论，快来抢沙发吧～</p>
+              </div>
+              
+              <div class="comment-item" v-for="item in comments.data" :key="item.id">
+                <div class="comment-avatar" :style="{background: stringToColor(item.username)}">
+                  {{ item.username.substring(0, 1) }}
+                </div>
+                <div class="comment-content-wrap">
+                  <div class="comment-header">
+                    <span class="comment-author">{{ item.username }}</span>
+                    <span class="comment-time">{{ formatTimeAgo(item.createdAt) }}</span>
+                  </div>
+                  <p class="comment-text">{{ item.content }}</p>
+                  <div class="comment-actions" v-if="canDeleteComment(item)">
+                    <button class="comment-delete-btn" @click="deleteComment(item)">删除</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 评论分页 -->
+            <div class="pagination" v-if="comments.pagination.total > comments.pagination.pageSize">
+              <button 
+                class="pagination-btn" 
+                :disabled="comments.pagination.page === 1" 
+                @click="changeCommentPage(comments.pagination.page - 1)"
+              >
+                ← 上一页
+              </button>
+              <span class="pagination-info">第 {{ comments.pagination.page }} / {{ commentTotalPages }} 页</span>
+              <button 
+                class="pagination-btn" 
+                :disabled="comments.pagination.page >= commentTotalPages" 
+                @click="changeCommentPage(comments.pagination.page + 1)"
+              >
+                下一页 →
+              </button>
+            </div>
           </div>
         </div>
       </div>
-      <div v-else-if="viewMode === 'admin'" class="news-admin">
-        <div class="admin-toolbar">
-          <div class="toolbar-group">
-            <button class="news-button" @click="backToList">返回</button>
-            <button class="news-button primary" @click="startCreateCategory">新增分类</button>
+
+      <!-- 优化编辑器界面 -->
+      <div v-else-if="(viewMode === 'create' || viewMode === 'edit')" class="editor-view">
+        <div class="editor-container">
+          <div class="editor-header">
+            <h2 class="editor-title">{{ viewMode === 'create' ? '📝 发布新文章' : '✏️ 编辑文章' }}</h2>
+            <button class="close-btn" @click="backToList" title="关闭">×</button>
           </div>
-          <div class="toolbar-group">
-            <button class="news-button" :disabled="isBackingUp" @click="triggerBackup">
-              {{ isBackingUp ? '备份中...' : '立即备份' }}
+          
+          <div class="editor-form">
+            <div class="form-group">
+              <label class="form-label">文章标题</label>
+              <input v-model="editorForm.title" class="form-input" placeholder="输入吸引人的标题..." />
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group form-group--half">
+                <label class="form-label">分类</label>
+                <select v-model="editorForm.categoryId" class="form-select" :disabled="!categories.length">
+                  <option disabled value="">
+                    {{ categories.length ? '请选择分类' : '暂无分类，请先在管理后台创建' }}
+                  </option>
+                  <option v-for="category in categories" :key="category.id" :value="category.id">
+                    {{ category.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">封面图片</label>
+              <div class="upload-area">
+                <label class="upload-trigger" v-if="!editorForm.coverImage">
+                  <input type="file" class="file-input-hidden" @change="onCoverUpload" accept="image/*" />
+                  <div class="upload-placeholder">
+                    <span class="upload-icon">🖼</span>
+                    <div class="upload-text">
+                      <p class="upload-title">点击上传封面</p>
+                      <p class="upload-hint">支持 PNG、JPG 格式，大小不超过 5MB</p>
+                    </div>
+                  </div>
+                </label>
+                <div class="image-preview" v-if="editorForm.coverImage">
+                  <img :src="editorForm.coverImage" alt="封面预览" />
+                  <button type="button" class="remove-image-btn" @click="clearCover">
+                    <span>×</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">摘要</label>
+              <textarea 
+                v-model="editorForm.summary" 
+                rows="3" 
+                class="form-textarea"
+                placeholder="简短描述文章内容，吸引读者点击..."
+              ></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">正文内容</label>
+              <textarea 
+                v-model="editorForm.content" 
+                rows="12" 
+                class="form-textarea form-textarea--content"
+                placeholder="支持 HTML 格式，开始创作吧..."
+              ></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">附件文件</label>
+              <div class="upload-area">
+                <label class="upload-trigger upload-trigger--file">
+                  <input type="file" class="file-input-hidden" multiple @change="onAttachmentUpload" accept=".pdf,.txt" />
+                  <span class="upload-file-icon">📎</span>
+                  <span class="upload-file-text">选择文件上传</span>
+                  <span class="upload-file-hint">(支持 PDF、TXT 格式)</span>
+                </label>
+                <ul class="file-list" v-if="editorForm.attachments.length">
+                  <li v-for="file in editorForm.attachments" :key="file.filePath" class="file-item">
+                    <span class="file-icon">📄</span>
+                    <span class="file-name">{{ file.filename }}</span>
+                    <button class="file-remove-btn" @click="removeAttachment(file)">×</button>
+                  </li>
+                </ul>
+                <p class="upload-empty" v-else>暂无附件</p>
+              </div>
+            </div>
+            
+            <div class="form-actions">
+              <button class="form-btn form-btn--cancel" @click="backToList">取消</button>
+              <button class="form-btn form-btn--submit" @click="submitEditor">
+                {{ viewMode === 'create' ? '发布文章' : '保存修改' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 管理模式 -->
+      <div v-else-if="viewMode === 'admin'" class="admin-view">
+        <!-- 优化管理后台布局 -->
+        <div class="admin-header">
+          <h2 class="admin-title">⚙️ 管理后台</h2>
+          <button class="back-btn" @click="backToList">← 返回前台</button>
+        </div>
+        
+        <div class="admin-toolbar">
+          <div class="toolbar-section">
+            <button class="toolbar-btn toolbar-btn--primary" @click="startCreateCategory">
+              + 新增分类
+            </button>
+          </div>
+          <div class="toolbar-section">
+            <button class="toolbar-btn" :disabled="isBackingUp" @click="triggerBackup">
+              {{ isBackingUp ? '备份中...' : '💾 立即备份' }}
             </button>
             <button
-              class="news-button danger"
+              class="toolbar-btn"
               :disabled="!backupInfo || !backupInfo.exists || isRestoring"
               @click="triggerRestore"
             >
-              {{ isRestoring ? '恢复中...' : '恢复数据' }}
+              {{ isRestoring ? '恢复中...' : '↩️ 恢复数据' }}
             </button>
             <button
               v-if="isRoot"
-              class="news-button primary"
+              class="toolbar-btn"
               :disabled="isSeeding"
-              @click="triggerSeed"
+              @click="promptSeedOptions"
             >
-              {{ isSeeding ? '生成中...' : '生成测试数据' }}
+              {{ isSeeding ? '生成中...' : '🎲 生成测试数据' }}
             </button>
             <button
-              class="news-button danger"
+              class="toolbar-btn toolbar-btn--danger"
               v-if="isRoot"
               :disabled="isResetting"
               @click="triggerReset"
             >
-              {{ isResetting ? '清空中...' : '清空测试数据' }}
+              {{ isResetting ? '清空中...' : '🗑 清空测试数据' }}
             </button>
           </div>
         </div>
-        <div class="admin-section admin-card backup-card">
-          <h3>备份状态</h3>
+        
+        <!-- 备份状态卡片 -->
+        <div class="admin-card">
+          <h3 class="card-title">💾 备份状态</h3>
           <div class="backup-info">
-            <div class="backup-line">
-              <span v-if="backupInfo && backupInfo.exists">
-                上次备份：{{ formatDate(backupInfo.createdAt) }} · {{ backupInfo.adminName || '未知' }} · {{ formatSize(backupInfo.size || 0) }}
+            <div class="info-row">
+              <span class="info-label">上次备份：</span>
+              <span class="info-value" v-if="backupInfo && backupInfo.exists">
+                {{ formatDate(backupInfo.createdAt) }} · {{ backupInfo.adminName || '未知' }} · {{ formatSize(backupInfo.size || 0) }}
               </span>
-              <span v-else>尚未生成备份</span>
+              <span class="info-value info-value--empty" v-else>尚未生成备份</span>
             </div>
-            <div class="backup-line" v-if="backupInfo && backupInfo.lastRestoreAt">
-              上次恢复：{{ formatDate(backupInfo.lastRestoreAt) }} · {{ backupInfo.lastRestoreAdminName || '未知' }}
-            </div>
-          </div>
-        </div>
-        <div class="admin-section admin-card">
-          <h3>文章管理</h3>
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th style="width: 50px;">ID</th>
-                <th>标题</th>
-                <th style="width: 120px;">分类</th>
-                <th style="width: 120px;">作者</th>
-                <th style="width: 140px;">发布时间</th>
-                <th style="width: 140px;">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="article in articles" :key="`admin-article-${article.id}`">
-                <td>{{ article.id }}</td>
-                <td class="table-title" @click="openDetail(article.id)">{{ article.title }}</td>
-                <td>{{ article.categoryName }}</td>
-                <td>{{ article.author }}</td>
-                <td>{{ formatDate(article.publishedAt) }}</td>
-                <td class="admin-actions">
-                  <button class="news-button" @click="editArticle(article)">编辑</button>
-                  <button class="news-button danger" @click="deleteArticle(article)">删除</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="admin-pagination" v-if="pagination.total > pagination.pageSize">
-            <button class="news-button" :disabled="pagination.page === 1" @click="changePage(pagination.page - 1)">上一页</button>
-            <span>第 {{ pagination.page }} / {{ totalPages }} 页</span>
-            <button class="news-button" :disabled="pagination.page >= totalPages" @click="changePage(pagination.page + 1)">下一页</button>
-          </div>
-        </div>
-        <div class="admin-section admin-card">
-          <h3>分类管理</h3>
-          <table class="admin-table admin-table--compact">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>名称</th>
-                <th>描述</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="category in categories" :key="category.id">
-                <td>{{ category.id }}</td>
-                <td>
-                  <input v-model="category.editName" class="news-input" />
-                </td>
-                <td>
-                  <input v-model="category.editDescription" class="news-input" />
-                </td>
-                <td class="admin-actions">
-                  <button class="news-button primary" @click="saveCategory(category)">保存</button>
-                  <button class="news-button danger" @click="removeCategory(category)">删除</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="admin-section admin-card">
-          <h3>操作日志</h3>
-          <div class="log-list">
-            <div v-for="item in auditLogs" :key="item.id" class="log-item">
-              <span>{{ formatDate(item.createdAt) }}</span>
-              <span>{{ item.admin || '系统' }}</span>
-              <span>{{ item.action }}</span>
-              <span>{{ item.targetType }}#{{ item.targetId }}</span>
+            <div class="info-row" v-if="backupInfo && backupInfo.lastRestoreAt">
+              <span class="info-label">上次恢复：</span>
+              <span class="info-value">
+                {{ formatDate(backupInfo.lastRestoreAt) }} · {{ backupInfo.lastRestoreAdminName || '未知' }}
+              </span>
             </div>
           </div>
         </div>
-        <div class="admin-section admin-card" v-if="stats">
-          <h3>统计概览</h3>
-          <div class="heatmap-wrapper">
-            <div class="heatmap-block">
-              <strong>分类热力</strong>
-              <div class="heatmap" v-if="stats.perCategory && stats.perCategory.length">
-                <div
-                  v-for="item in stats.perCategory"
-                  :key="`stat-cat-${item.categoryId}`"
-                  class="heat-cell"
-                  :style="getHeatStyle(item.newsCount, maxCategoryCount)"
-                  :title="`${item.categoryName}: ${item.newsCount} 条`"
-                >
-                  <span class="heat-label">{{ item.categoryName }}</span>
-                  <span class="heat-value">{{ item.newsCount }}</span>
+        
+        <!-- 文章管理 -->
+        <div class="admin-card">
+          <h3 class="card-title">📰 文章管理</h3>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">ID</th>
+                  <th>标题</th>
+                  <th style="width: 120px;">分类</th>
+                  <th style="width: 120px;">作者</th>
+                  <th style="width: 160px;">发布时间</th>
+                  <th style="width: 160px;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="article in articles" :key="`admin-article-${article.id}`">
+                  <td class="cell-id">{{ article.id }}</td>
+                  <td class="cell-title" @click="openDetail(article.id)">{{ article.title }}</td>
+                  <td><span class="table-badge">{{ article.categoryName }}</span></td>
+                  <td>{{ article.author }}</td>
+                  <td class="cell-date">{{ formatDate(article.publishedAt) }}</td>
+                  <td class="cell-actions">
+                    <button class="table-btn table-btn--edit" @click="editArticle(article)">编辑</button>
+                    <button class="table-btn table-btn--delete" @click="deleteArticle(article)">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination" v-if="pagination.total > pagination.pageSize">
+            <button class="pagination-btn" :disabled="pagination.page === 1" @click="changePage(pagination.page - 1)">
+              ← 上一页
+            </button>
+            <span class="pagination-info">第 {{ pagination.page }} / {{ totalPages }} 页</span>
+            <button class="pagination-btn" :disabled="pagination.page >= totalPages" @click="changePage(pagination.page + 1)">
+              下一页 →
+            </button>
+          </div>
+        </div>
+        
+        <!-- 分类管理 -->
+        <div class="admin-card">
+          <h3 class="card-title">🏷 分类管理</h3>
+          <div class="table-wrapper">
+            <table class="data-table data-table--compact">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">ID</th>
+                  <th style="width: 200px;">名称</th>
+                  <th>描述</th>
+                  <th style="width: 160px;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="category in categories" :key="category.id">
+                  <td class="cell-id">{{ category.id }}</td>
+                  <td>
+                    <input v-model="category.editName" class="table-input" placeholder="分类名称" />
+                  </td>
+                  <td>
+                    <input v-model="category.editDescription" class="table-input" placeholder="分类描述" />
+                  </td>
+                  <td class="cell-actions">
+                    <button class="table-btn table-btn--save" @click="saveCategory(category)">保存</button>
+                    <button class="table-btn table-btn--delete" @click="removeCategory(category)">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <!-- 操作日志 -->
+        <div class="admin-card">
+          <h3 class="card-title">📋 操作日志</h3>
+          <div class="log-container">
+            <div v-for="item in auditLogs" :key="item.id" class="log-entry">
+              <span class="log-time">{{ formatDate(item.createdAt) }}</span>
+              <span class="log-admin">{{ item.admin || '系统' }}</span>
+              <span class="log-action">{{ item.action }}</span>
+              <span class="log-target">{{ item.targetType }}#{{ item.targetId }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 统计概览 -->
+        <div class="admin-card" v-if="stats">
+          <h3 class="card-title">📊 统计概览</h3>
+          <div class="stats-grid">
+            <div class="stat-block">
+              <h4 class="stat-block-title">分类热力图</h4>
+              <div class="pie-chart-container" v-if="stats.perCategory && stats.perCategory.length">
+                <div class="pie-chart" :style="getPieChartStyle(stats.perCategory)"></div>
+                <div class="pie-legend">
+                  <div v-for="(item, index) in stats.perCategory" :key="index" class="legend-item">
+                    <span class="legend-color" :style="{background: getPieColor(index)}"></span>
+                    <span class="legend-label">{{ item.categoryName }} ({{ item.newsCount }})</span>
+                  </div>
                 </div>
               </div>
-              <div class="heat-empty" v-else>暂无分类数据</div>
+              <p class="stat-empty" v-else>暂无数据</p>
             </div>
-            <div class="heatmap-block">
-              <strong>作者热力 (TOP50)</strong>
+            <div class="stat-block">
+              <h4 class="stat-block-title">作者热力图 (TOP 50)</h4>
               <div class="heatmap" v-if="stats.perAuthor && stats.perAuthor.length">
                 <div
                   v-for="item in stats.perAuthor"
@@ -322,12 +599,39 @@
                   <span class="heat-value">{{ item.newsCount }}</span>
                 </div>
               </div>
-              <div class="heat-empty" v-else>暂无作者数据</div>
+              <p class="stat-empty" v-else>暂无数据</p>
             </div>
           </div>
         </div>
       </div>
-      <div v-else class="news-empty">请选择新闻或使用左侧筛选</div>
+      
+      <div v-else class="empty-state">
+        <div class="empty-icon">📰</div>
+        <p class="empty-text">请选择文章查看详情</p>
+      </div>
+    </div>
+
+    <div class="seed-dialog-overlay" v-if="showSeedDialog">
+      <div class="seed-dialog">
+        <div class="seed-dialog__header">
+          <h3>生成测试数据</h3>
+          <button class="seed-dialog__close" type="button" @click="closeSeedDialog">×</button>
+        </div>
+        <p class="seed-dialog__hint">选择生成方式，所有现有数据都会被覆盖。</p>
+        <div class="seed-dialog__options">
+          <button class="seed-option" type="button" @click="confirmSeedMode('default')" :disabled="isSeeding">
+            <div class="seed-option__title">标准示例</div>
+            <div class="seed-option__desc">生成轻量示例数据（默认大小）</div>
+          </button>
+          <button class="seed-option seed-option--massive" type="button" @click="confirmSeedMode('massive')" :disabled="isSeeding">
+            <div class="seed-option__title">10 万条大全</div>
+            <div class="seed-option__desc">强制生成总计 100000 条测试数据，耗时更久</div>
+          </button>
+        </div>
+        <div class="seed-dialog__footer">
+          <button class="seed-dialog__cancel" type="button" @click="closeSeedDialog">取消</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -358,6 +662,7 @@ import {
   resetNews,
   seedNews
 } from '../../services/newsApi';
+import searchIcon from '@/assets/images/search.svg';
 
 export default {
   name: 'NewsCenter',
@@ -380,6 +685,7 @@ export default {
       filters: {
         keyword: '',
         categoryId: '',
+        authorId: '',
         sort: 'newest',
         page: 1,
         pageSize: 10
@@ -395,7 +701,7 @@ export default {
       categories: [],
       hotNews: [],
       recentNews: [],
-  viewMode: this.defaultView,
+      viewMode: this.defaultView,
       currentArticle: null,
       attachments: [],
       comments: {
@@ -424,7 +730,9 @@ export default {
       isBackingUp: false,
       isRestoring: false,
       isResetting: false,
-      isSeeding: false
+      isSeeding: false,
+      showSeedDialog: false,
+      searchIcon
     };
   },
   computed: {
@@ -528,6 +836,19 @@ export default {
         }
         this.backupInfo = null;
       }
+    },
+    toggleMyArticles() {
+      if (!this.profile || !this.profile.id) {
+        return;
+      }
+      const myId = this.profile.id;
+      if (this.filters.authorId === myId) {
+        this.filters.authorId = '';
+      } else {
+        this.filters.authorId = myId;
+        this.filters.categoryId = '';
+      }
+      this.applyFilters();
     },
     applyFilters() {
       this.filters.page = 1;
@@ -966,7 +1287,7 @@ export default {
         this.isResetting = false;
       }
     },
-    async triggerSeed() {
+    promptSeedOptions() {
       if (!this.token || !this.isAdmin || this.isSeeding) {
         return;
       }
@@ -974,13 +1295,44 @@ export default {
         window.alert('仅 root 用户可执行该操作');
         return;
       }
-      if (!window.confirm('将生成示例数据并覆盖当前内容，是否继续？')) {
+      this.showSeedDialog = true;
+    },
+    closeSeedDialog() {
+      if (this.isSeeding) {
+        return;
+      }
+      this.showSeedDialog = false;
+    },
+    confirmSeedMode(mode) {
+      if (this.isSeeding) {
+        return;
+      }
+      this.showSeedDialog = false;
+      this.triggerSeed(mode);
+    },
+    async triggerSeed(mode = 'default') {
+      if (!this.token || !this.isAdmin || this.isSeeding) {
+        return;
+      }
+      if (!this.isRoot) {
+        window.alert('仅 root 用户可执行该操作');
+        return;
+      }
+      const isMassive = mode === 'massive';
+      const confirmText = isMassive
+        ? '将生成约 10 万条测试数据（耗费时间较长），是否继续？'
+        : '将生成示例数据并覆盖当前内容，是否继续？';
+      if (!window.confirm(confirmText)) {
         return;
       }
       this.isSeeding = true;
+      this.showSeedDialog = false;
       try {
         this.filters.page = 1;
-        await seedNews(this.token, {});
+        const payload = isMassive
+          ? { mode: 'massive', targetTotal: 100000 }
+          : { mode: 'default' };
+        const result = await seedNews(this.token, payload);
         await Promise.all([
           this.loadCategories(),
           this.loadArticles(),
@@ -989,7 +1341,17 @@ export default {
         ]);
         await Promise.all([this.loadAudit(), this.loadBackupInfo()]);
         this.backToList();
-        window.alert('测试数据已生成');
+        const totalEntries = result && result.plan && result.plan.totalEntries;
+        const planParams = result && result.plan && result.plan.parameters;
+        const detailLines = planParams
+          ? `\n用户: ${planParams.users || 0}\n分类: ${planParams.categories || 0}\n新闻: ${planParams.news || 0}\n评论: ${(planParams.totalComments != null) ? planParams.totalComments : (planParams.news * (planParams.commentsPerNews || 0))}`
+          : '';
+        const defaultMessage = totalEntries ? `测试数据已生成，共 ${totalEntries} 条${detailLines}` : `测试数据已生成${detailLines}`;
+        if (isMassive) {
+          window.alert(`已生成 ${totalEntries || '100000'} 条测试数据${detailLines}`);
+        } else {
+          window.alert(defaultMessage);
+        }
       } catch (err) {
         window.alert(err.message || '生成测试数据失败');
       } finally {
@@ -1078,627 +1440,2081 @@ export default {
       }
       return `${size.toFixed(1)}${units[unitIndex]}`;
     },
-    getHeatStyle(count, max) {
-      const value = Number(count) || 0;
-      const ceiling = Math.max(Number(max) || 0, 1);
-      const ratio = Math.min(value / ceiling, 1);
-      const alpha = 0.18 + ratio * 0.6;
-      const borderAlpha = Math.max(alpha - 0.1, 0.2);
+    getPieChartStyle(data) {
+      if (!data || !data.length) return {};
+      
+      const total = data.reduce((sum, item) => sum + item.newsCount, 0);
+      let currentPercent = 0;
+      let gradientString = 'conic-gradient(';
+      
+      data.forEach((item, index) => {
+        const percentage = (item.newsCount / total) * 100;
+        const color = this.getPieColor(index);
+        const endPercent = currentPercent + percentage;
+        gradientString += `${color} ${currentPercent}% ${endPercent}%, `;
+        currentPercent = endPercent;
+      });
+      
+      gradientString = gradientString.slice(0, -2) + ')'; // Remove last comma
+      
       return {
-        backgroundColor: `rgba(58, 142, 230, ${alpha})`,
-        borderColor: `rgba(58, 142, 230, ${borderAlpha})`
+        background: gradientString
       };
+    },
+    stringToColor(str) {
+      if (!str) return '#9ca3af';
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = hash % 360;
+      return `hsl(${hue}, 45%, 55%)`;
+    },
+    formatTimeAgo(date) {
+      if (!date) return '';
+      const d = new Date(date);
+      const now = new Date();
+      const diff = (now - d) / 1000;
+      if (diff < 60) return '刚刚';
+      if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+      if (diff < 604800) return `${Math.floor(diff / 86400)}天前`;
+      return this.formatDate(date).split(' ')[0];
     }
   }
 };
 </script>
 
 <style scoped>
+/* 全新的现代化配色方案 - 低饱和度、高对比度的中性色系 */
+
+/* ===== 基础变量 ===== */
+* {
+  box-sizing: border-box;
+}
+
 .news-center {
+  --color-bg-primary: #fafafa;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f5f5f5;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #525252;
+  --color-text-tertiary: #737373;
+  --color-border-light: #e5e5e5;
+  --color-border-medium: #d4d4d4;
+  --color-accent: #64748b;
+  --color-accent-hover: #475569;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+  
   display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: #fff;
+  background: var(--color-bg-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--color-text-primary);
 }
+
 .news-center.admin-mode {
-  background: #f5f6f8;
+  --color-bg-primary: #f8f9fa;
 }
-.news-side {
-  width: 240px;
-  border-right: 1px solid #e5e7eb;
-  padding: 12px;
-  box-sizing: border-box;
-  overflow-y: auto;
-  background: #fafafa;
+
+/* ===== 顶部导航栏 ===== */
+.top-nav {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
 }
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.brand-logo {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.brand-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-medium);
+  transform: translateY(-1px);
+}
+
+.action-btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+
+.action-btn--primary:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.btn-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.btn-text {
+  line-height: 1;
+}
+
+/* ===== 主内容区 ===== */
 .news-main {
   flex: 1;
-  padding: 16px;
   overflow-y: auto;
-  background: #ffffff;
+  overflow-x: hidden;
 }
-.admin-main {
-  padding: 16px 24px;
-  background: transparent;
+
+.news-main.list-main {
+  background: var(--color-bg-primary);
 }
-.news-header {
+
+.news-main.admin-main {
+  padding: var(--spacing-lg);
+  background: var(--color-bg-primary);
+}
+
+/* ===== 列表容器 ===== */
+.news-list-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--spacing-lg) var(--spacing-md);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: #ffffff;
-  padding: 14px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  gap: var(--spacing-lg);
 }
-.news-button {
-  padding: 6px 12px;
-  margin-top: 4px;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+
+/* ===== 搜索区域 ===== */
+.search-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.search-bar:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.1);
+}
+
+.search-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: var(--spacing-sm);
+  display: inline-block;
+  flex-shrink: 0;
+  object-fit: contain;
+  opacity: 0.85;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.search-bar:focus-within .search-icon {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--color-text-primary);
+}
+
+.search-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.clear-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
-  color: #344054;
-  font-weight: 500;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
-.news-button:disabled {
+
+.clear-btn:hover {
+  background: var(--color-border-medium);
+}
+
+/* ===== 筛选栏 ===== */
+.filter-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filter-chip:hover {
+  border-color: var(--color-border-medium);
+  background: var(--color-bg-tertiary);
+}
+
+.filter-chip--active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+
+/* ===== 特色区域 - 热门作者 ===== */
+.featured-section {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.section-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 var(--spacing-sm);
+  background: var(--color-bg-tertiary);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.author-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.author-card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.author-card:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.author-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.author-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.author-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.author-meta {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+/* ===== 文章区域 ===== */
+.articles-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.sort-controls {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.sort-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-btn:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.sort-btn--active {
+  color: var(--color-accent);
+  background: rgba(100, 116, 139, 0.1);
+}
+
+/* ===== 文章列表 ===== */
+.article-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.article-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.article-card:hover {
+  border-color: var(--color-border-medium);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.article-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.author-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.author-avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.author-name-sm {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.article-time {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.article-body {
+  display: flex;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.article-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.article-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  margin: 0 0 var(--spacing-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.article-excerpt {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.article-thumbnail {
+  width: 140px;
+  height: 100px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+}
+
+.article-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.article-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.stat-icon {
+  font-size: 14px;
+}
+
+.category-tag {
+  margin-left: auto;
+  padding: 2px var(--spacing-sm);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* ===== 空状态 ===== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) var(--spacing-lg);
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 15px;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+/* ===== 分页 ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) 0;
+}
+
+.pagination-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-medium);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* ===== 详情页 ===== */
+.article-detail {
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
+}
+
+.detail-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--spacing-xl) var(--spacing-lg);
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: var(--spacing-xl);
+}
+
+.back-button:hover {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-medium);
+}
+
+.back-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.detail-header {
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.detail-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  margin: 0 0 var(--spacing-lg);
+  letter-spacing: -0.5px;
+}
+
+.detail-meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.author-badge-lg {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.author-avatar-lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.author-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.author-name-lg {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.publish-date {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.view-count {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.meta-icon {
+  font-size: 16px;
+}
+
+.detail-content {
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xl);
+}
+
+.detail-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  margin: var(--spacing-lg) 0;
+}
+
+.detail-content p {
+  margin: var(--spacing-md) 0;
+}
+
+.detail-content h1, .detail-content h2, .detail-content h3 {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-md);
+  color: var(--color-text-primary);
+}
+
+/* ===== 附件区域 ===== */
+.attachments-box {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.attachments-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-md);
+}
+
+.attachments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.attachment-item {
+  margin: 0;
+}
+
+.attachment-link {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+}
+
+.attachment-link:hover {
+  border-color: var(--color-accent);
+  background: var(--color-bg-primary);
+}
+
+.file-icon {
+  font-size: 20px;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.file-size {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+/* ===== 详情页操作按钮 ===== */
+.detail-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.action-btn--secondary {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+.action-btn--secondary:hover {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-medium);
+}
+
+.action-btn--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
+}
+
+.action-btn--danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+/* ===== 评论区 ===== */
+.comments-section {
+  margin-top: var(--spacing-xl);
+}
+
+.comments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+}
+
+.comments-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.comments-icon {
+  font-size: 22px;
+}
+
+.write-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.write-btn:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+/* ===== 评论输入框 ===== */
+.comment-composer {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  padding: var(--spacing-lg);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+}
+
+.composer-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.composer-input-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.composer-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  resize: vertical;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.composer-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.1);
+}
+
+.composer-textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submit-comment-btn {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.submit-comment-btn:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.submit-comment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== 评论列表 ===== */
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.empty-comments {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}
+
+.comment-item {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+}
+
+.comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.comment-content-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.comment-author {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.comment-time {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.comment-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.comment-actions {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.comment-delete-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+
+.comment-delete-btn:hover {
+  color: var(--color-danger);
+}
+
+.pie-chart-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-md);
+}
+
+.pie-chart {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  flex: 1;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== 编辑器视图 ===== */
+.editor-view {
+  background: var(--color-bg-primary);
+  min-height: 100vh;
+  padding: var(--spacing-xl) var(--spacing-md);
+}
+
+.editor-container {
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg-tertiary);
+}
+
+.editor-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.editor-form {
+  padding: var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-lg);
+}
+
+.form-group--half {
+  min-width: 0;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.form-textarea--content {
+  min-height: 300px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+/* ===== 上传区域 ===== */
+.upload-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.upload-trigger {
+  display: block;
+  cursor: pointer;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  border: 2px dashed var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-tertiary);
+  transition: all 0.2s ease;
+}
+
+.upload-placeholder:hover {
+  border-color: var(--color-accent);
+  background: var(--color-bg-primary);
+}
+
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.6;
+}
+
+.upload-text {
+  text-align: center;
+}
+
+.upload-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 4px;
+}
+
+.upload-hint {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.upload-trigger--file {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  transition: all 0.2s ease;
+}
+
+.upload-trigger--file:hover {
+  border-color: var(--color-border-medium);
+  background: var(--color-bg-primary);
+}
+
+.upload-file-icon {
+  font-size: 20px;
+}
+
+.upload-file-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.upload-file-hint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-left: auto;
+}
+
+.upload-empty {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  padding: var(--spacing-md);
+  margin: 0;
+}
+
+/* ===== 图片预览 ===== */
+.image-preview {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
+}
+
+.image-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.remove-image-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+/* ===== 文件列表 ===== */
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.file-item .file-icon {
+  font-size: 18px;
+}
+
+.file-item .file-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.file-remove-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.file-remove-btn:hover {
+  background: var(--color-danger);
+  color: white;
+}
+
+/* ===== 表单操作按钮 ===== */
+.form-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.form-btn {
+  padding: var(--spacing-md) var(--spacing-xl);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-btn--cancel {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.form-btn--cancel:hover {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-medium);
+}
+
+.form-btn--submit {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+
+.form-btn--submit:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ===== 管理后台 ===== */
+.admin-view {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.admin-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.back-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-medium);
+}
+
+.admin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.toolbar-section {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.toolbar-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-medium);
+}
+
+.toolbar-btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+
+.toolbar-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.toolbar-btn--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
+}
+
+.toolbar-btn--danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== 管理卡片 ===== */
+.admin-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-lg);
+}
+
+/* ===== 备份信息 ===== */
+.backup-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 14px;
+}
+
+.info-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.info-value {
+  color: var(--color-text-primary);
+}
+
+.info-value--empty {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* ===== 数据表格 ===== */
+.table-wrapper {
+  overflow-x: auto;
+  margin-bottom: var(--spacing-md);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.data-table thead {
+  background: var(--color-bg-tertiary);
+}
+
+.data-table th {
+  padding: var(--spacing-md);
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  border-bottom: 2px solid var(--color-border-medium);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+}
+
+.data-table tbody tr:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.cell-id {
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+}
+
+.cell-title {
+  cursor: pointer;
+  color: var(--color-accent);
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.cell-title:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.cell-date {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.cell-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.table-badge {
+  display: inline-block;
+  padding: 2px var(--spacing-sm);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.table-input {
+  width: 100%;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.table-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.table-btn {
+  padding: 4px var(--spacing-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.table-btn--edit {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.table-btn--edit:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+
+.table-btn--save {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.table-btn--save:hover {
+  background: #059669;
+}
+
+.table-btn--delete {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
+}
+
+.table-btn--delete:hover {
+  background: #dc2626;
+}
+
+.data-table--compact td {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+/* ===== 日志列表 ===== */
+.log-container {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.log-time {
+  color: var(--color-text-tertiary);
+  min-width: 140px;
+}
+
+.log-admin {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  min-width: 80px;
+}
+
+.log-action {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.log-target {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+/* ===== 统计图表 ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.stat-block-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.heatmap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.heat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  min-width: 70px;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.heat-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.heat-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.heat-value {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+.stat-empty {
+  text-align: center;
+  padding: var(--spacing-lg);
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ===== 种子数据对话框 ===== */
+.seed-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.seed-dialog {
+  width: min(520px, 92vw);
+  background: var(--color-bg-primary);
+  border-radius: 18px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.35);
+  border: 1px solid var(--color-border-light);
+  padding: var(--spacing-lg);
+}
+
+.seed-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.seed-dialog__header h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.seed-dialog__close {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.seed-dialog__hint {
+  margin: 0 0 var(--spacing-md);
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.seed-dialog__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.seed-option {
+  border: 1px solid var(--color-border-light);
+  border-radius: 14px;
+  padding: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.seed-option:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--color-accent);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+}
+
+.seed-option:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-.news-button.primary {
-  background: #3a8ee6;
-  color: #fff;
-  border-color: #3a8ee6;
-}
-.news-button.danger {
-  background: #f56c6c;
-  color: #fff;
-  border-color: #f56c6c;
-}
-.news-button:not(:disabled):hover {
-  background: #e5e7eb;
-  border-color: #cbd0d8;
-}
-.news-button.primary:not(:disabled):hover {
-  background: #3278c2;
-  border-color: #3278c2;
-}
-.news-button.danger:not(:disabled):hover {
-  background: #d95353;
-  border-color: #d95353;
-}
-.news-hot h4 {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1f2933;
-}
-.news-hot ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.news-hot li {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  cursor: pointer;
-  border-bottom: 1px dashed #d8dee4;
-  transition: color 0.15s ease;
-}
-.news-hot li .title {
-  flex: 1;
-  margin-right: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.news-hot li .metric {
-  color: #999;
-  font-size: 12px;
-}
-.news-hot li:hover {
-  color: #3a8ee6;
-}
-.news-hot {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-}
-.news-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.news-card {
-  display: flex;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  background: #ffffff;
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-.news-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
-}
-.news-card-cover {
-  width: 120px;
-  height: 100px;
-  overflow: hidden;
-}
-.news-card-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.news-card-body {
-  flex: 1;
-  padding: 8px;
-  box-sizing: border-box;
-}
-.news-card-title {
-  font-weight: 600;
+
+.seed-option__title {
   font-size: 16px;
-  color: #1f2933;
-}
-.news-card-meta span {
-  margin-right: 10px;
-  font-size: 12px;
-  color: #6b7280;
-}
-.news-card-summary {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #4b5563;
-  line-height: 1.5;
-}
-.news-pagination {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
-}
-.news-empty {
-  text-align: center;
-  color: #888;
-  padding: 20px 0;
-}
-.news-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.detail-header h2 {
-  margin: 0;
-}
-.detail-meta span {
-  margin-right: 10px;
-  color: #666;
-  font-size: 12px;
-}
-.detail-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-.detail-content {
-  padding: 10px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  max-height: 280px;
-  overflow-y: auto;
-}
-.detail-attachments ul {
-  list-style: none;
-  padding: 0;
-}
-.detail-attachments li {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-.detail-attachments .size {
-  color: #999;
-  font-size: 12px;
-}
-.detail-comments textarea {
-  width: 100%;
-  min-height: 80px;
-  padding: 8px;
-  box-sizing: border-box;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-}
-.comment-item {
-  border-bottom: 1px solid #f0f0f0;
-  padding: 8px 0;
-}
-.comment-author {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: #666;
-}
-.comment-content {
-  margin-top: 4px;
-  font-size: 14px;
-  color: #333;
-}
-.news-editor textarea {
-  width: 100%;
-  padding: 8px;
-  box-sizing: border-box;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-}
-.editor-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.news-editor {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 20px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-}
-.news-editor h2 {
-  font-size: 20px;
   font-weight: 600;
-  color: #1f2933;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
-.editor-form {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 16px;
-  gap: 12px;
-  border: 1px solid #e5e7eb;
-}
-.editor-form label {
-  font-weight: 600;
-  color: #1f2d3d;
-  font-size: 14px;
-}
-.news-input,
-.news-select,
-.editor-form textarea {
-  border: 1px solid #d8dee6;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 14px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  background: #ffffff;
-}
-.news-input:focus,
-.news-select:focus,
-.editor-form textarea:focus {
-  outline: none;
-  border-color: #3a8ee6;
-  box-shadow: 0 0 0 2px rgba(58, 142, 230, 0.18);
-  background: #ffffff;
-}
-.editor-upload {
-  background: #ffffff;
-  border: 1px dashed #cbd5e1;
-  border-radius: 8px;
-  padding: 12px;
-  gap: 10px;
-}
-.editor-upload {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.editor-upload .file-input {
-  display: none;
-}
-.upload-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid #d0d7e2;
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #2f5597;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-.upload-control::before {
-  content: '';
-  width: 20px;
-  height: 20px;
-  background: url('~@/assets/images/selectfile.svg') no-repeat center;
-  background-size: contain;
-}
-.upload-control:hover {
-  background-color: #edf2f7;
-  border-color: #b9c4d3;
-}
-.upload-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-.upload-text strong {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2d3d;
-}
-.upload-text span {
-  font-size: 12px;
-  color: #60708c;
-}
-.upload-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f5f7fa;
-  border-radius: 6px;
-  padding: 6px 10px;
-  border: 1px solid #dce2ec;
-  color: #1f2d3d;
+
+.seed-option__desc {
   font-size: 13px;
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
 }
-.upload-meta .file-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  margin-right: 12px;
+
+.seed-option--massive {
+  border: 1px solid var(--color-accent);
+  background: linear-gradient(120deg, rgba(16, 163, 127, 0.08), rgba(16, 163, 127, 0.02));
 }
-.upload-remove {
-  border: none;
-  background: none;
-  color: #f56c6c;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background-color 0.15s ease;
-}
-.upload-remove:hover {
-  background: rgba(245, 108, 108, 0.16);
-}
-.upload-hint {
-  font-size: 12px;
-  color: #7b8da0;
-}
-.editor-upload img {
-  width: 120px;
-  height: 80px;
-  object-fit: cover;
-  border: 1px solid #d8dee4;
-  border-radius: 4px;
-}
-.preview {
-  border-radius: 6px;
-  overflow: hidden;
-  max-width: 200px;
-}
-.attachment-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.attachment-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  background: #f7f8fa;
-  border: 1px solid #e0e4eb;
-  border-radius: 6px;
-  font-size: 13px;
-  color: #1f2d3d;
-}
-.editor-actions {
-  display: flex;
-  gap: 8px;
-}
-.news-admin .admin-toolbar {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.news-admin .admin-toolbar .toolbar-group {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.news-admin {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.admin-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 4px rgba(31, 35, 41, 0.04);
-  overflow-x: auto;
-}
-.admin-pagination {
+
+.seed-dialog__footer {
+  margin-top: var(--spacing-lg);
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
 }
-.news-admin h3 {
-  margin: 0 0 12px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2933;
-}
-.news-admin .admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 12px;
-  min-width: 680px;
-}
-.news-admin .admin-table th,
-.news-admin .admin-table td {
-  border: 1px solid #e0e0e0;
-  padding: 8px 10px;
-  text-align: left;
-  font-size: 13px;
-  vertical-align: middle;
-}
-.news-admin .admin-table th {
-  background: #f5f7fa;
-  font-weight: 600;
-  color: #374151;
-}
-.news-admin .admin-table .table-title {
+
+.seed-dialog__cancel {
+  border: none;
+  background: var(--color-bg-tertiary);
+  border-radius: 999px;
+  padding: 8px 18px;
   cursor: pointer;
-  color: #1f2d3d;
+  color: var(--color-text-secondary);
 }
-.news-admin .admin-table .table-title:hover {
-  text-decoration: underline;
+
+/* ===== 响应式设计 ===== */
+@media (max-width: 768px) {
+  .nav-container {
+    padding: var(--spacing-md);
+  }
+  
+  .brand-title {
+    font-size: 18px;
+  }
+  
+  .btn-text {
+    display: none;
+  }
+  
+  .news-list-container {
+    padding: var(--spacing-md);
+  }
+  
+  .featured-section,
+  .admin-card {
+    padding: var(--spacing-md);
+  }
+  
+  .author-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+  
+  .article-card {
+    padding: var(--spacing-md);
+  }
+  
+  .article-title {
+    font-size: 16px;
+  }
+  
+  .article-thumbnail {
+    width: 100px;
+    height: 75px;
+  }
+  
+  .detail-container {
+    padding: var(--spacing-lg) var(--spacing-md);
+  }
+  
+  .detail-title {
+    font-size: 24px;
+  }
+  
+  .editor-container {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .toolbar-section {
+    width: 100%;
+  }
+  
+  .toolbar-btn {
+    flex: 1;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .log-entry {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+  }
+  
+  .log-time,
+  .log-admin {
+    min-width: auto;
+  }
+  
+  .log-target {
+    margin-left: 0;
+  }
 }
-.news-admin .admin-actions {
-  display: flex;
-  gap: 8px;
+
+/* ===== 滚动条样式 ===== */
+.news-main::-webkit-scrollbar,
+.log-container::-webkit-scrollbar,
+.table-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
-.news-admin .admin-table--compact td {
-  vertical-align: middle;
+
+.news-main::-webkit-scrollbar-track,
+.log-container::-webkit-scrollbar-track,
+.table-wrapper::-webkit-scrollbar-track {
+  background: var(--color-bg-tertiary);
 }
-.news-admin .admin-table--compact .news-input {
-  width: 100%;
-  padding: 4px 8px;
-  font-size: 13px;
-}
-.news-admin .admin-table--compact .admin-actions {
-  justify-content: flex-start;
-}
-.news-admin table thead tr {
-  background: #f8f9fb;
-}
-.news-admin .admin-table input.news-input {
-  width: 100%;
-  box-sizing: border-box;
-  height: 32px;
-}
-.news-admin table thead th {
-  font-weight: 600;
-  color: #374151;
-}
-.news-admin table tbody tr:nth-child(even) {
-  background: #fafbfc;
-}
-.news-admin table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.news-admin th,
-.news-admin td {
-  border: 1px solid #e0e0e0;
-  padding: 6px;
-  text-align: left;
-}
-.log-list {
-  max-height: 180px;
-  overflow-y: auto;
-  border: 1px solid #e0e0e0;
+
+.news-main::-webkit-scrollbar-thumb,
+.log-container::-webkit-scrollbar-thumb,
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--color-border-medium);
   border-radius: 4px;
-  padding: 6px;
 }
-.log-item {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #555;
-  padding: 4px 0;
-  border-bottom: 1px dashed #f0f0f0;
+
+.news-main::-webkit-scrollbar-thumb:hover,
+.log-container::-webkit-scrollbar-thumb:hover,
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
 }
-.log-item:last-child {
-  border-bottom: none;
-}
-.stats-block {
-  margin-top: 10px;
-}
-.stats-block ul {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  max-height: 120px;
-  overflow-y: auto;
-}
-.stats-block li {
-  font-size: 12px;
-  color: #555;
-  padding: 2px 0;
-}
-.heatmap-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.heatmap-block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.heatmap {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
-}
-.heat-cell {
-  border: 1px solid rgba(58, 142, 230, 0.3);
-  border-radius: 8px;
-  padding: 8px;
-  color: #0f172a;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  transition: transform 0.15s ease;
-}
-.heat-cell:hover {
-  transform: translateY(-1px);
-}
-.heat-label {
-  font-size: 13px;
-  font-weight: 600;
-}
-.heat-value {
-  font-size: 12px;
-  color: #1f2937;
-}
-.heat-empty {
-  font-size: 12px;
-  color: #6b7280;
-}
-.backup-card .backup-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  color: #374151;
-}
-.backup-card .backup-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+
+@media (max-width: 768px) {
+  .pie-chart-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>

@@ -12,6 +12,7 @@ router.get('/', optionalAuth, asyncHandler(async (req, res) => {
     pageSize: Number(req.query.pageSize) || undefined,
     categoryId: req.query.categoryId ? Number(req.query.categoryId) : undefined,
     keyword: req.query.keyword || undefined,
+    authorId: req.query.authorId ? Number(req.query.authorId) : undefined,
     status: req.query.status || undefined,
     startDate: req.query.startDate || undefined,
     endDate: req.query.endDate || undefined,

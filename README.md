@@ -52,7 +52,7 @@ npm start
 *   `npm run build`: 构建前端代码，生成用于生产环境的静态文件。
 *   `npm run lint`: 检查并修复代码风格问题。
 *   `npm run prod`: 仅启动后端服务器 (生产模式)。
-*   `npm start`: **一键启动**，先构建前端，然后启动后端服务器。
+*   `npm run start`: **一键启动**，先构建前端，然后启动后端服务器。
 ## 打包命令
 
 *  `electron:build`: 打包后双击exe运行。

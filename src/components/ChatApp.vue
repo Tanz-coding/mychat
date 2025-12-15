@@ -70,6 +70,9 @@
         <div class="app-container-panel" v-show="curMenu==='news'">
           <NewsCenter :token="token" :current-user="loginUser" default-view="list" />
         </div>
+        <div class="app-container-panel" v-show="curMenu==='ai'">
+          <AiAssistant :token="token" />
+        </div>
         <div class="app-container-panel" v-if="isRootUser && curMenu==='admin'">
           <NewsCenter :token="token" :current-user="loginUser" default-view="admin" />
         </div>
@@ -300,6 +303,7 @@
   import { BELL_URL } from "./config";
   import NewsCenter from "./news/NewsCenter.vue";
   import DatabaseConfigDialog from "./DatabaseConfigDialog.vue";
+  import AiAssistant from "./AiAssistant.vue";
   export default {
     name: "chat-app",
     components:{
@@ -310,7 +314,8 @@
       UserLogin,
       SessionPanel,
       NewsCenter,
-      DatabaseConfigDialog
+      DatabaseConfigDialog,
+      AiAssistant
     },
     filters:{
       friendlyTime,
@@ -380,6 +385,11 @@
             name:"news",
             icon:"custom-icon-news",
             title:"新闻"
+          },
+          {
+            name:"ai",
+            icon:"custom-icon-ai",
+            title:"助手"
           },
           {
             name:"setting",
@@ -755,14 +765,15 @@
     clear: both;
   }
   .app-main-panel{
-    width: 700px;
-    height: 600px;
+    width: 95vw;
+    max-width: 1200px;
+    height: 90vh;
+    max-height: 900px;
     background-color: #f2f2f2;
     position: absolute;
     left: 50%;
     top: 50%;
-    margin-left: -350px;
-    margin-top: -300px;
+    transform: translate(-50%, -50%);
   }
   .app-aside-panel{
     width: 60px;
@@ -804,6 +815,17 @@
   }
   .aside-menu-list li.active span.custom-icon-news{
     background-image: url('~@/assets/images/news-ctr.svg');
+  }
+  .aside-menu-list li span.custom-icon-ai{
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    font-size: 0;
+    background: url('~@/assets/images/AI.svg') no-repeat center;
+    background-size: contain;
+  }
+  .aside-menu-list li.active span.custom-icon-ai{
+    background-image: url('~@/assets/images/AI-ctr.svg');
   }
   .aside-menu-list li span.custom-icon-admin{
     display: inline-block;
@@ -936,10 +958,12 @@
     color: #666666;
   }
   .app-card-title{
-    font-size: 16px;
-    line-height: 40px;
-    color: #333333;
+    font-size: 20px;
+    line-height: 48px;
+    font-weight: 400;
+    color: #1f2329;
     padding: 0 10px;
+    letter-spacing: 0.3px;
   }
   .app-user-card{
     padding: 10px;
@@ -979,7 +1003,7 @@
     color: #666666;
   }
   .app-setting{
-    max-width: 400px;
+    max-width: 440px;
   }
   .ui-list{
     list-style: none;
@@ -987,74 +1011,98 @@
     margin: 0;
   }
   .ui-list li{
-    line-height: 20px;
-    height: 40px;
     border-bottom: 1px solid #d9dce0;
-    padding: 10px;
+    padding: 16px 14px;
     margin: 0 10px;
     box-sizing: border-box;
-  }
-  .ui-list li .ui-label{
-    font-size: 14px;
-    color: #333333;
-  }
-  .app-config-card{
-    margin: 20px 10px 0 10px;
-    padding: 16px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #ffffff 0%, #eef2fa 100%);
-    box-shadow: 0 12px 30px rgba(21, 42, 90, 0.15);
-  }
-  .app-config-card__content{
+    min-height: 56px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
+    line-height: 1.4;
+    flex-wrap: wrap;
+  }
+  .ui-list li .ui-label{
+    font-size: 16px;
+    color: #1f2329;
+    font-weight: 400;
+  }
+  .app-config-card{
+    position: relative;
+    margin: 24px 12px 0 12px;
+    padding: 20px 22px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(75, 111, 255, 0.2);
+    box-shadow: 0 20px 45px rgba(34, 52, 88, 0.18);
+    overflow: hidden;
+  }
+  .app-config-card:before{
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(93, 126, 255, 0.25), transparent 55%);
+    pointer-events: none;
+  }
+  .app-config-card__content{
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
   }
   .app-config-card__info{
     flex: 1;
   }
   .app-config-card__title{
-    font-size: 15px;
+    font-size: 18px;
     font-weight: 600;
-    color: #1f2329;
-    margin-bottom: 4px;
+    color: #111827;
+    margin-bottom: 6px;
   }
   .app-config-card__desc{
-    font-size: 12px;
+    font-size: 14px;
     color: #5f6672;
     margin: 0;
   }
   .app-config-card__btn{
-    min-width: 88px;
-    height: 32px;
-    border-radius: 6px;
+    min-width: 110px;
+    height: 40px;
+    border-radius: 999px;
     border: none;
-    background: #3a8ee6;
+    background: linear-gradient(135deg, #5d7eff 0%, #3a8ee6 100%);
     color: #ffffff;
     cursor: pointer;
-    transition: background 0.2s ease;
-    font-size: 13px;
-    padding: 0 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 0 22px;
+    box-shadow: 0 10px 20px rgba(74, 111, 255, 0.3);
   }
   .app-config-card__btn:hover{
-    background: #3278c5;
+    transform: translateY(-1px);
+    box-shadow: 0 14px 24px rgba(74, 111, 255, 0.35);
   }
   .app-config-card__btn:disabled{
-    background: #9dbce8;
+    background: linear-gradient(135deg, #aabffd 0%, #9dbce8 100%);
+    box-shadow: none;
     cursor: not-allowed;
+    transform: none;
   }
   .app-config-card__error{
-    margin-top: 10px;
-    font-size: 12px;
+    position: relative;
+    margin-top: 14px;
+    font-size: 13px;
     color: #c0392b;
   }
   .ui-right{
     float: right;
   }
   .ui-text{
-    font-size: 14px;
-    color: #666666;
+    font-size: 16px;
+    color: #4b5563;
+    font-weight: 400;
   }
   .ui-link{
     font-size: 14px;
