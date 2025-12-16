@@ -48,7 +48,7 @@
   },
   "build": {
     "appId": "com.mychat.desktop",
-    "productName": "MyChat",
+    "productName": "Q信",
     "files": [
       "dist/**/*",
       "server/**/*",
@@ -72,7 +72,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/app.ico"
+      "icon": "src/assets/images/main-logo.png"
     },
     "nsis": {
       "oneClick": true,

@@ -1,7 +1,7 @@
 <template>
   <div class="chat-app-warp">
-    <UserLogin v-if="!loginUser.id" @login="userLogin" :type="deviceType" v-drag></UserLogin>
-    <div class="app-main-panel ui-clear" v-drag v-if="loginUser.id&&deviceType==='pc'">
+    <UserLogin v-if="!loginUser.id" @login="userLogin" :type="deviceType"></UserLogin>
+    <div class="app-main-panel ui-clear" v-if="loginUser.id&&deviceType==='pc'">
       <div class="app-aside-panel">
         <div class="app-user-avatar">
           <img :src="loginUser.avatarUrl" @mousedown.stop alt="" :title="loginUser.name">
@@ -141,6 +141,10 @@
                 <span class="ui-text">{{about.email}}</span>
               </li>
               <li>
+                <span class="ui-label">仓库：</span>
+                <a class="ui-link" :href="about.repo" target="_blank" rel="noopener">{{about.repo}}</a>
+              </li>
+              <li>
                 <span class="ui-label">单位：</span>
                 <span class="ui-text">{{about.unit}}</span>
               </li>
@@ -242,6 +246,14 @@
             <li>
               <span class="ui-label">邮箱：</span>
               <span class="ui-text">{{about.email}}</span>
+            </li>
+            <li>
+              <span class="ui-label">仓库：</span>
+              <a class="ui-link" :href="about.repo" target="_blank" rel="noopener">{{about.repo}}</a>
+            </li>
+            <li>
+              <span class="ui-label">单位：</span>
+              <span class="ui-text">{{about.unit}}</span>
             </li>
           </ul>
         </div>
@@ -413,10 +425,11 @@
           isVoice:true
         },
         about:{
-          version:"v1.0",
+          version:"v1.1.0",
           license:"MIT",
           author:"tenz",
           email:"3156212493@qq.com",
+          repo:"https://github.com/Tanz-coding/mychat.git",
           unit:"华南师范大学计算机学院",
         },
         loginUser:{},

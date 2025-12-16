@@ -1461,6 +1461,27 @@ export default {
         background: gradientString
       };
     },
+    getPieColor(index) {
+      const palette = ['#0ea5e9', '#6366f1', '#22c55e', '#f97316', '#ec4899', '#14b8a6', '#a855f7', '#f43f5e'];
+      if (index == null || Number.isNaN(index)) {
+        return palette[0];
+      }
+      return palette[index % palette.length];
+    },
+    getHeatStyle(count, maxCount) {
+      const safeMax = Math.max(1, Number(maxCount) || 1);
+      const value = Math.max(0, Number(count) || 0);
+      const ratio = Math.min(1, value / safeMax);
+      const hue = 210 - ratio * 140; // shift from blue to orange/red
+      const lightness = 95 - ratio * 40;
+      const background = `hsl(${hue}, 70%, ${lightness}%)`;
+      const borderColor = `hsl(${hue}, 65%, ${Math.max(30, lightness - 25)}%)`;
+      return {
+        background,
+        borderColor,
+        color: ratio > 0.55 ? '#ffffff' : '#1f2937'
+      };
+    },
     stringToColor(str) {
       if (!str) return '#9ca3af';
       let hash = 0;

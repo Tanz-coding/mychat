@@ -159,7 +159,7 @@ async function createMainWindow() {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
-    title: 'MyChat',
+    title: 'Q信',
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,

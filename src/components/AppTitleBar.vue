@@ -19,7 +19,7 @@ export default {
   props: {
     title: {
       type: String,
-      default: 'MyChat'
+      default: 'Q信'
     }
   },
   data() {
