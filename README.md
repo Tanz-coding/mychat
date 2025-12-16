@@ -1,31 +1,30 @@
-# 聊天室项目启动方法
+# Q信 部署与运行文档
 
-本项目是一个实时聊天应用程序，前端使用 Vue.js 构建，后端使用 Node.js 和 Socket.IO。
+本文档说明如何在不同环境下部署和运行 Q信（聊天 + 新闻中心 + AI 助手 + Electron 桌面版）。建议按顺序完成：环境准备 → 数据库与 Redis 配置 → 启动/打包。
 
-## 开始之前
+---
 
-请确保您的电脑上已安装以下软件：
+## 环境准备
 
-*   **Node.js**: 推荐使用最新的 LTS (长期支持) 版本。您可以从 [nodejs.org](https://nodejs.org/) 下载并安装。Node.js 会自带 npm (Node 包管理器)。
-*   **mysql**:确保端口未被占用
-*   **redis** 确保端口未被占用
+### 系统与软件要求
 
-## 安装步骤
+- 操作系统：Windows 10/11（其他系统可参考命令自行调整）
+- Node.js：推荐 LTS 版本（≥ 18.x），自带 npm
+- MySQL：5.7+ 或 8.x
+- Redis：5.x+ 或 6.x
+- Git（可选）：用于从 GitHub 克隆仓库
 
-1.  **克隆项目仓库** (如果您尚未克隆):
+> 注意：MySQL 与 Redis 对应端口不要被其他服务占用，默认配置中为：
+> - MySQL：3306
+> - Redis：6379
 
-    ```bash
-    git clone <您的项目仓库地址>
-    cd mychat
-    ```
+###  克隆与安装依赖
 
-2.  **安装项目依赖**:
-
-    进入 `mychat` 目录后，在命令行中运行以下命令，安装前端和后端所需的所有依赖：
-
-    ```bash
-    npm install
-    ```
+```powershell
+git clone https://github.com/Tanz-coding/mychat.git
+cd mychat
+npm install
+```
 
 ---
 
