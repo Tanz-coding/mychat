@@ -1,7 +1,6 @@
-const crypto = require('crypto');
 const jwt = require('../jwt');
-const { query } = require('../mysql');
 const asyncHandler = require('./asyncHandler');
+const authService = require('../services/authService');
 
 function extractToken(req) {
   const header = req.headers['authorization'];
@@ -17,26 +16,6 @@ function extractToken(req) {
   return null;
 }
 
-async function ensurePersistentUser(profile) {
-  if (!profile || !profile.name) {
-    throw Object.assign(new Error('Invalid user profile'), { status: 401 });
-  }
-  const username = profile.name;
-  const rows = await query('SELECT id, username, role, avatar_url FROM users WHERE username = ?', [username]);
-  if (rows.length > 0) {
-    return rows[0];
-  }
-  const passwordHash = crypto.createHash('sha256').update(`temp-${username}`).digest('hex');
-  const avatar = profile.avatarUrl || '/static/img/avatar/default.png';
-  const role = username === 'root' ? 'admin' : 'user';
-  await query(
-    'INSERT INTO users (username, password_hash, role, avatar_url, email) VALUES (?,?,?,?,?)',
-    [username, passwordHash, role, avatar, null]
-  );
-  const inserted = await query('SELECT id, username, role, avatar_url FROM users WHERE username = ?', [username]);
-  return inserted[0];
-}
-
 const optionalAuth = asyncHandler(async (req, res, next) => {
   const token = extractToken(req);
   if (!token) {
@@ -49,8 +28,7 @@ const optionalAuth = asyncHandler(async (req, res, next) => {
     return next();
   }
   try {
-    const persistentUser = await ensurePersistentUser(decoded.data);
-    req.user = persistentUser;
+    req.user = await authService.getUserFromTokenData(decoded.data);
   } catch (err) {
     console.error('Auth optional check failed', err.message);
     req.user = null;
@@ -68,8 +46,10 @@ const requireAuth = asyncHandler(async (req, res, next) => {
     return res.status(401).json({ message: 'Invalid token' });
   }
   try {
-    const persistentUser = await ensurePersistentUser(decoded.data);
-    req.user = persistentUser;
+    req.user = await authService.getUserFromTokenData(decoded.data);
+    if (!req.user) {
+      return res.status(401).json({ message: 'Invalid token user' });
+    }
   } catch (err) {
     console.error('Auth failed', err.message);
     return res.status(err.status || 500).json({ message: 'Authentication failed' });

@@ -6,6 +6,12 @@ const io=require("./io");
 const {getNetworkIPv4}=require("./utils");
 const { loadConfig, updateConfig } = require('./config');
 const newsRouter = require('./routes/newsRouter');
+const authRouter = require('./routes/authRouter');
+const friendRouter = require('./routes/friendRouter');
+const settingsRouter = require('./routes/settingsRouter');
+const aiRouter = require('./routes/aiRouter');
+const systemRouter = require('./routes/systemRouter');
+const { ensureCoreSchema } = require('./services/schemaService');
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err && err.stack ? err.stack : err);
@@ -30,6 +36,10 @@ try {
 }
 const mysqlManager = require('./mysql');
 const redisClient = require('./redis');
+
+ensureCoreSchema().catch((error) => {
+  console.error('Core schema init failed:', error && error.message ? error.message : error);
+});
 
 const enableConfigApi = process.env.ENABLE_CONFIG_API === 'true';
 
@@ -111,6 +121,11 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/news', newsRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/friends', friendRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/ai', aiRouter);
+app.use('/api/system', systemRouter);
 
 app.use("/",express.static(distDir));
 app.use("/assets/images",express.static(uploadRoot));

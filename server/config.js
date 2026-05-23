@@ -117,6 +117,9 @@ function updateConfig(partial) {
   if (partial.upload) {
     next.upload = { ...next.upload, ...partial.upload };
   }
+  if (partial.ai) {
+    next.ai = { ...(next.ai || {}), ...partial.ai };
+  }
   if (next.mysql && next.mysql.port) {
     next.mysql.port = Number(next.mysql.port);
   }

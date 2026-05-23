@@ -6,6 +6,27 @@ const newsService = require('../services/newsService');
 
 const router = express.Router();
 
+async function ensureCategoryId(payload) {
+  if (!payload || payload.categoryId || !payload.categoryName) {
+    return payload;
+  }
+  const categoryName = String(payload.categoryName).trim();
+  if (!categoryName) {
+    return payload;
+  }
+  const categories = await newsService.listCategories();
+  const existed = (categories || []).find(item => item.name === categoryName || item.categoryName === categoryName);
+  if (existed) {
+    payload.categoryId = existed.id || existed.categoryId;
+    return payload;
+  }
+  payload.categoryId = await newsService.createCategory({
+    name: categoryName,
+    description: `${categoryName} 相关内容`
+  });
+  return payload;
+}
+
 router.get('/', optionalAuth, asyncHandler(async (req, res) => {
   const data = await newsService.listNews({
     page: Number(req.query.page) || 1,
@@ -119,7 +140,7 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
 }));
 
 router.post('/', requireAuth, rateLimit, asyncHandler(async (req, res) => {
-  const payload = req.body;
+  const payload = await ensureCategoryId(req.body);
   if (!payload.title || !payload.content || !payload.categoryId) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
@@ -140,10 +161,11 @@ router.post('/', requireAuth, rateLimit, asyncHandler(async (req, res) => {
 
 router.put('/:id', requireAuth, rateLimit, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
+  const payload = await ensureCategoryId(req.body);
   try {
-    await newsService.updateNews(id, req.body, req.user);
+    await newsService.updateNews(id, payload, req.user);
     if (req.user.role === 'admin') {
-      await newsService.recordAudit(req.user.id, 'update_news', 'news', id, req.body);
+      await newsService.recordAudit(req.user.id, 'update_news', 'news', id, payload);
     }
     res.json({ id });
   } catch (err) {

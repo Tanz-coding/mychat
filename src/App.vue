@@ -1,20 +1,20 @@
 <template>
   <div class="app-warp">
-    <AppTitleBar v-if="isElectron"></AppTitleBar>
-    <div class="app-body">
-      <ChatApp></ChatApp>
+      <AppTitleBar v-if="isElectron"></AppTitleBar>
+      <div class="app-body">
+      <IslandApp></IslandApp>
+      </div>
     </div>
-  </div>
-</template>
+  </template>
 
 <script>
-import ChatApp from "./components/ChatApp";
+import IslandApp from "./components/IslandApp.vue";
 import AppTitleBar from "./components/AppTitleBar.vue";
 
 export default {
   name: 'App',
   components: {
-    ChatApp,
+    IslandApp,
     AppTitleBar
   },
   data() {

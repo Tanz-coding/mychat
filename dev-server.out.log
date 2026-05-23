@@ -1,0 +1,485 @@
+
+> chatroom@1.1.0 serve
+> vue-cli-service serve --host 127.0.0.1 --port 8080
+
+ INFO  Starting development server...
+ DONE  Compiled successfully in 14460ms10:01:06
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+  Note that the development build is not optimized.
+  To create a production build, run npm run build.
+
+ WAIT  Compiling...10:04:33
+
+ DONE  Compiled successfully in 4424ms10:04:38
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:07:24
+
+ DONE  Compiled successfully in 1458ms10:07:26
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:20:16
+
+ DONE  Compiled successfully in 2822ms10:20:19
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:20:32
+
+ ERROR  Failed to compile with 1 error10:20:32
+
+ error  in ./src/assets/css/island-theme.less
+
+Syntax Error: 
+
+  z-index: 0;
+  width: min(52vw, 720px);
+       ^
+Error evaluating function `min`: incompatible types
+      in D:\数据库实验\课程设计\03_项目源码\mychat\src\assets\css\island-theme.less (line 2975, column 9)
+
+
+ @ ./src/assets/css/island-theme.less 4:14-244 15:3-20:5 16:22-252
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...10:20:59
+
+ ERROR  Failed to compile with 1 error10:20:59
+
+ error  in ./src/assets/css/island-theme.less
+
+Syntax Error: 
+
+  z-index: 0;
+  width: min(52vw, 720px);
+       ^
+Error evaluating function `min`: incompatible types
+      in D:\数据库实验\课程设计\03_项目源码\mychat\src\assets\css\island-theme.less (line 2975, column 9)
+
+
+ @ ./src/assets/css/island-theme.less 4:14-244 15:3-20:5 16:22-252
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...10:23:10
+
+ DONE  Compiled successfully in 755ms10:23:11
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:24:54
+
+ DONE  Compiled successfully in 1294ms10:24:55
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:29:35
+
+ DONE  Compiled successfully in 1671ms10:29:37
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:29:45
+
+ DONE  Compiled successfully in 2141ms10:29:48
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:29:57
+
+ DONE  Compiled successfully in 1558ms10:29:59
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:30:26
+
+ DONE  Compiled successfully in 1290ms10:30:28
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:30:37
+
+ DONE  Compiled successfully in 733ms10:30:38
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:30:45
+
+ DONE  Compiled successfully in 1653ms10:30:47
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:30:56
+
+ DONE  Compiled successfully in 1018ms10:30:57
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:36:08
+
+ DONE  Compiled successfully in 1652ms10:36:10
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:36:50
+
+ DONE  Compiled successfully in 2300ms10:36:52
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:38:00
+
+ DONE  Compiled successfully in 753ms10:38:01
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:38:25
+
+ DONE  Compiled successfully in 794ms10:38:26
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:41:39
+
+ DONE  Compiled successfully in 1911ms10:41:41
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...10:43:03
+
+ DONE  Compiled successfully in 2261ms10:43:05
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:06:33
+
+ DONE  Compiled successfully in 4299ms11:06:38
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:07:44
+
+ DONE  Compiled successfully in 4188ms11:07:48
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:08:51
+
+ DONE  Compiled successfully in 4198ms11:08:56
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:09:55
+
+ DONE  Compiled successfully in 4211ms11:09:59
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:11:25
+
+ DONE  Compiled successfully in 4269ms11:11:29
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:12:57
+
+ DONE  Compiled successfully in 4217ms11:13:02
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:14:49
+
+ DONE  Compiled successfully in 4173ms11:14:54
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:16:02
+
+ DONE  Compiled successfully in 4253ms11:16:07
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:20:26
+
+ DONE  Compiled successfully in 3446ms11:20:30
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:21:38
+
+ DONE  Compiled successfully in 4254ms11:21:42
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:22:44
+
+ DONE  Compiled successfully in 2668ms11:22:47
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:23:49
+
+ DONE  Compiled successfully in 2558ms11:23:52
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:25:00
+
+ DONE  Compiled successfully in 2519ms11:25:02
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:26:20
+
+ DONE  Compiled successfully in 2494ms11:26:22
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:27:38
+
+ DONE  Compiled successfully in 1947ms11:27:40
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:28:57
+
+ DONE  Compiled successfully in 2606ms11:29:00
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:33:05
+
+ DONE  Compiled successfully in 797ms11:33:06
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:36:35
+
+ DONE  Compiled successfully in 1571ms11:36:37
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:37:38
+
+ DONE  Compiled successfully in 1005ms11:37:39
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:38:40
+
+ DONE  Compiled successfully in 1015ms11:38:41
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:39:55
+
+ DONE  Compiled successfully in 1428ms11:39:57
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:40:36
+
+ DONE  Compiled successfully in 1511ms11:40:38
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:42:53
+
+ DONE  Compiled successfully in 2754ms11:42:56
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:49:15
+
+ DONE  Compiled successfully in 3930ms11:49:19
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:49:48
+
+ DONE  Compiled successfully in 3132ms11:49:51
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:51:41
+
+ DONE  Compiled successfully in 4237ms11:51:45
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:53:03
+
+ DONE  Compiled successfully in 3308ms11:53:06
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:53:35
+
+ DONE  Compiled successfully in 918ms11:53:36
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...11:54:11
+
+ DONE  Compiled successfully in 812ms11:54:12
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...12:08:11
+
+ DONE  Compiled successfully in 3102ms12:08:15
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+

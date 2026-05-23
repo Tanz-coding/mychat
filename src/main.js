@@ -1,6 +1,7 @@
 import Vue from 'vue'
 import App from './App.vue'
 import './assets/css/common.less';
+import './assets/css/island-theme.less';
 import axios from 'axios';
 
 axios.defaults.baseURL = (typeof window !== 'undefined' && window._HOST) || window.location.origin;

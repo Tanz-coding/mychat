@@ -71,7 +71,7 @@
           <NewsCenter :token="token" :current-user="loginUser" default-view="list" />
         </div>
         <div class="app-container-panel" v-show="curMenu==='ai'">
-          <AiAssistant :token="token" />
+          <AiAssistant :token="token" :current-user="loginUser" />
         </div>
         <div class="app-container-panel" v-if="isRootUser && curMenu==='admin'">
           <NewsCenter :token="token" :current-user="loginUser" default-view="admin" />
