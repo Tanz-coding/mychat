@@ -719,10 +719,10 @@ function buildWhere(filters, params) {
     const like = `%${filters.keyword}%`;
     params.push(like, like, like, like);
   }
-  if (filters.status) {
+  if (filters.status && filters.status !== 'all') {
     where.push('n.status = ?');
     params.push(filters.status);
-  } else {
+  } else if (!filters.status) {
     where.push("n.status = 'published'");
   }
   if (filters.startDate) {
@@ -955,7 +955,11 @@ async function updateNews(id, payload, user) {
 async function deleteNews(id, user) {
   const existing = await query('SELECT author_id FROM news WHERE id = ?', [id]);
   if (!existing.length) {
-    throw Object.assign(new Error('News not found'), { status: 404 });
+    await redis.del(`news:${id}`);
+    await redis.del('recent:list');
+    await redis.zrem('hot:zset', id);
+    await redis.hdel('metrics:views', id);
+    return;
   }
   const isOwner = existing[0].author_id === user.id;
   const isAdmin = user.role === 'admin';
@@ -1102,10 +1106,70 @@ async function getStats() {
       ORDER BY newsCount DESC
      LIMIT 50`
   );
+  const totalRows = await query(
+    `SELECT
+       (SELECT COUNT(*) FROM news) AS totalNews,
+       (SELECT COUNT(*) FROM users) AS totalUsers,
+       (SELECT COUNT(DISTINCT author_id) FROM news) AS totalAuthors,
+       (SELECT COUNT(*) FROM news_categories) AS totalCategories`
+  );
+  const totalBeforeRows = await query(
+    'SELECT COUNT(*) AS totalBefore FROM users WHERE created_at < DATE_SUB(CURDATE(), INTERVAL 11 DAY)'
+  );
+  const growthRows = await query(
+    `SELECT DATE(created_at) AS day, COUNT(*) AS newUsers
+     FROM users
+     WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 11 DAY)
+     GROUP BY DATE(created_at)
+     ORDER BY day ASC`
+  );
+  const growthMap = {};
+  growthRows.forEach((item) => {
+    const key = formatDateKey(item.day);
+    growthMap[key] = Number(item.newUsers || 0);
+  });
+  let runningTotal = Number(totalBeforeRows[0] && totalBeforeRows[0].totalBefore || 0);
+  const userGrowth = [];
+  for (let offset = 11; offset >= 0; offset--) {
+    const day = new Date();
+    day.setHours(0, 0, 0, 0);
+    day.setDate(day.getDate() - offset);
+    const key = formatDateKey(day);
+    const newUsers = growthMap[key] || 0;
+    runningTotal += newUsers;
+    userGrowth.push({
+      date: key,
+      label: formatShortDateLabel(day),
+      newUsers,
+      totalUsers: runningTotal
+    });
+  }
+  const totals = totalRows[0] || {};
   return {
+    totalNews: Number(totals.totalNews || 0),
+    totalUsers: Number(totals.totalUsers || 0),
+    totalAuthors: Number(totals.totalAuthors || 0),
+    totalCategories: Number(totals.totalCategories || 0),
     perCategory,
-    perAuthor
+    perAuthor,
+    userGrowth
   };
+}
+
+function formatDateKey(value) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10);
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatShortDateLabel(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  return `${date.getMonth() + 1}.${date.getDate()}`;
 }
 
 async function recordAudit(adminId, action, targetType, targetId, metadata = null) {

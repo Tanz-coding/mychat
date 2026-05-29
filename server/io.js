@@ -48,10 +48,8 @@ const util = {
 
     await this.loginSuccess(user, socket);
     store.saveUser(user, isReconnect ? 'reconnect' : 'login');
-    if (!isReconnect) {
-      const messages = await store.getMessages();
-      socket.emit('history-message', 'group_001', messages);
-    }
+    const messages = await store.getMessages();
+    socket.emit('history-message', 'group_001', messages);
     console.log(`${user.username} ${isReconnect ? 'reconnect' : 'login'}`);
   },
 

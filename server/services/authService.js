@@ -12,7 +12,7 @@ function safeUser(row) {
   return {
     id: Number(row.id),
     username: row.username,
-    name: row.username,
+    name: row.name || row.username,
     role: row.role || 'user',
     avatarUrl: row.avatarUrl || row.avatar_url || '/static/img/avatar/default.png',
     email: row.email || ''
@@ -21,14 +21,48 @@ function safeUser(row) {
 
 async function getUserById(id) {
   await ensureCoreSchema();
-  const rows = await query('SELECT id, username, role, avatar_url, email FROM users WHERE id = ? LIMIT 1', [id]);
+  const rows = await query('SELECT id, username, name, role, avatar_url, email FROM users WHERE id = ? LIMIT 1', [id]);
   return safeUser(rows[0]);
 }
 
 async function getUserByUsername(username) {
   await ensureCoreSchema();
-  const rows = await query('SELECT id, username, role, avatar_url, email FROM users WHERE username = ? LIMIT 1', [normalizeUsername(username)]);
+  const rows = await query('SELECT id, username, name, role, avatar_url, email FROM users WHERE username = ? LIMIT 1', [normalizeUsername(username)]);
   return safeUser(rows[0]);
+}
+
+async function changePassword(userId, oldPassword, newPassword) {
+  await ensureCoreSchema();
+  const rows = await query('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [userId]);
+  if (!rows.length) {
+    throw Object.assign(new Error('用户不存在'), { status: 404 });
+  }
+  if (rows[0].password_hash !== hashPassword(oldPassword)) {
+    throw Object.assign(new Error('旧密码不正确'), { status: 401 });
+  }
+  await query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(newPassword), userId]);
+}
+
+async function updateProfile(userId, fields) {
+  await ensureCoreSchema();
+  const updates = [];
+  const values = [];
+  if (fields.name !== undefined) {
+    updates.push('name = ?');
+    values.push(String(fields.name || '').trim());
+  }
+  if (fields.avatarUrl !== undefined) {
+    updates.push('avatar_url = ?');
+    values.push(String(fields.avatarUrl || ''));
+  }
+  if (fields.email !== undefined) {
+    updates.push('email = ?');
+    values.push(String(fields.email || ''));
+  }
+  if (updates.length) {
+    values.push(userId);
+    await query(`UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, values);
+  }
 }
 
 async function login(username, password) {
@@ -38,7 +72,7 @@ async function login(username, password) {
     throw Object.assign(new Error('请输入账号和密码'), { status: 400 });
   }
   const rows = await query(
-    'SELECT id, username, password_hash, role, avatar_url, email FROM users WHERE username = ? LIMIT 1',
+    'SELECT id, username, name, password_hash, role, avatar_url, email FROM users WHERE username = ? LIMIT 1',
     [account]
   );
   if (!rows.length || rows[0].password_hash !== hashPassword(password)) {

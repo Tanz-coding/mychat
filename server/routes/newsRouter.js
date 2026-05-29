@@ -28,13 +28,14 @@ async function ensureCategoryId(payload) {
 }
 
 router.get('/', optionalAuth, asyncHandler(async (req, res) => {
+  const canManageAll = req.user && req.user.role === 'admin';
   const data = await newsService.listNews({
     page: Number(req.query.page) || 1,
     pageSize: Number(req.query.pageSize) || undefined,
     categoryId: req.query.categoryId ? Number(req.query.categoryId) : undefined,
     keyword: req.query.keyword || undefined,
     authorId: req.query.authorId ? Number(req.query.authorId) : undefined,
-    status: req.query.status || undefined,
+    status: canManageAll ? (req.query.status || undefined) : 'published',
     startDate: req.query.startDate || undefined,
     endDate: req.query.endDate || undefined,
     sort: req.query.sort || 'newest'
@@ -134,6 +135,10 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const data = await newsService.getNewsById(id);
   if (!data) {
+    return res.status(404).json({ message: 'News not found' });
+  }
+  const canManage = req.user && (req.user.role === 'admin' || Number(req.user.id) === Number(data.authorId));
+  if (data.status !== 'published' && !canManage) {
     return res.status(404).json({ message: 'News not found' });
   }
   res.json(data);

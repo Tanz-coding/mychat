@@ -483,3 +483,703 @@ Error evaluating function `min`: incompatible types
   - Local:   http://127.0.0.1:8080 
   - Network: http://127.0.0.1:8080
 
+ WAIT  Compiling...12:17:25
+
+ DONE  Compiled successfully in 2798ms12:17:28
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...12:17:29
+
+ DONE  Compiled successfully in 2471ms12:17:32
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...15:50:13
+
+ DONE  Compiled successfully in 3876ms15:50:17
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...15:57:42
+
+ DONE  Compiled successfully in 3053ms15:57:45
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...15:57:48
+
+ DONE  Compiled successfully in 2654ms15:57:50
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...15:58:19
+
+ DONE  Compiled successfully in 2443ms15:58:22
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...15:58:39
+
+ DONE  Compiled successfully in 2670ms15:58:42
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...15:58:57
+
+ ERROR  Failed to compile with 1 error15:58:57
+
+ error  in ./src/assets/css/island-theme.less
+
+Syntax Error: 
+
+.island-settings-line select {
+  width: min(330px, 58%);
+       ^
+Error evaluating function `min`: incompatible types
+      in D:\数据库实验\课程设计\03_项目源码\mychat\src\assets\css\island-theme.less (line 2864, column 9)
+
+
+ @ ./src/assets/css/island-theme.less 4:14-244 15:3-20:5 16:22-252
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...15:59:23
+
+ DONE  Compiled successfully in 3378ms15:59:27
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:00:43
+
+ DONE  Compiled successfully in 2716ms16:00:46
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:03:10
+
+ DONE  Compiled successfully in 2165ms16:03:12
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:03:27
+
+ DONE  Compiled successfully in 2115ms16:03:29
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:04:34
+
+ DONE  Compiled successfully in 2145ms16:04:36
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:20:03
+
+ DONE  Compiled successfully in 3773ms16:20:07
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:20:25
+
+ DONE  Compiled successfully in 2884ms16:20:28
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:20:36
+
+ DONE  Compiled successfully in 2703ms16:20:38
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:21:10
+
+ DONE  Compiled successfully in 2929ms16:21:14
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:24:50
+
+ DONE  Compiled successfully in 3383ms16:24:53
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:27:24
+
+ DONE  Compiled successfully in 3048ms16:27:27
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:36:23
+
+ ERROR  Failed to compile with 1 error16:36:30
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  1243:8  error  'QRCode' is defined but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:36:33
+
+ ERROR  Failed to compile with 1 error16:36:37
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  1248:8  error  'QRCode' is defined but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:36:43
+
+ ERROR  Failed to compile with 1 error16:36:47
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  1248:8  error  'QRCode' is defined but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:36:51
+
+ ERROR  Failed to compile with 1 error16:36:55
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  1248:8  error  'QRCode' is defined but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:37:17
+
+ DONE  Compiled successfully in 4523ms16:37:22
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:37:25
+
+ DONE  Compiled successfully in 2894ms16:37:28
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:37:55
+
+ DONE  Compiled successfully in 6021ms16:38:01
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:46:58
+
+ ERROR  Failed to compile with 1 error16:47:02
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  3070:13  error  'msgs' is assigned a value but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:47:09
+
+ ERROR  Failed to compile with 1 error16:47:12
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  3083:13  error  'msgs' is assigned a value but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:48:06
+
+ ERROR  Failed to compile with 1 error16:48:11
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  3192:13  error  'msgs' is assigned a value but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:48:24
+
+ ERROR  Failed to compile with 1 error16:48:28
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  3192:13  error  'msgs' is assigned a value but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:49:01
+
+ ERROR  Failed to compile with 1 error16:49:05
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  3192:13  error  'msgs' is assigned a value but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:49:12
+
+ ERROR  Failed to compile with 1 error16:49:18
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  3192:13  error  'msgs' is assigned a value but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:49:19
+
+ ERROR  Failed to compile with 1 error16:49:24
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  3196:13  error  'msgs' is assigned a value but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:49:31
+
+ ERROR  Failed to compile with 1 error16:49:36
+
+ error  in ./src/components/IslandApp.vue
+
+Module Error (from ./node_modules/eslint-loader/index.js):
+
+D:\数据库实验\课程设计\03_项目源码\mychat\src\components\IslandApp.vue
+  3196:13  error  'msgs' is assigned a value but never used  no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+ @ ./node_modules/cache-loader/dist/cjs.js??ref--13-0!./node_modules/babel-loader/lib!./node_modules/cache-loader/dist/cjs.js??ref--1-0!./node_modules/vue-loader/lib??vue-loader-options!./src/App.vue?vue&type=script&lang=js 1:0-51 6:4-13
+ @ ./src/App.vue?vue&type=script&lang=js
+ @ ./src/App.vue
+ @ ./src/main.js
+ @ multi (webpack)-dev-server/client?http://127.0.0.1:8080&sockPath=/sockjs-node (webpack)/hot/dev-server.js ./src/main.js
+
+ WAIT  Compiling...16:51:42
+
+ DONE  Compiled successfully in 6151ms16:51:49
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:58:06
+
+ DONE  Compiled successfully in 4765ms16:58:11
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:58:14
+
+ DONE  Compiled successfully in 4340ms16:58:19
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...16:58:40
+
+ DONE  Compiled successfully in 3759ms16:58:44
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:00:07
+
+ DONE  Compiled successfully in 3914ms17:00:11
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:03:03
+
+ DONE  Compiled successfully in 6734ms17:03:10
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:03:17
+
+ DONE  Compiled successfully in 4499ms17:03:22
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:03:34
+
+ DONE  Compiled successfully in 687ms17:03:35
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:08:14
+
+ DONE  Compiled successfully in 5851ms17:08:20
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:08:22
+
+ DONE  Compiled successfully in 4169ms17:08:26
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:08:29
+
+ DONE  Compiled successfully in 2676ms17:08:32
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:08:46
+
+ DONE  Compiled successfully in 2883ms17:08:49
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:08:51
+
+ DONE  Compiled successfully in 2953ms17:08:54
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:08:54
+
+ DONE  Compiled successfully in 3894ms17:08:58
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:08:58
+
+ DONE  Compiled successfully in 3102ms17:09:02
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:09:03
+
+ DONE  Compiled successfully in 2733ms17:09:06
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:09:09
+
+ DONE  Compiled successfully in 2499ms17:09:12
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:09:23
+
+ DONE  Compiled successfully in 2420ms17:09:26
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:10:29
+
+ DONE  Compiled successfully in 3049ms17:10:32
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:11:31
+
+ DONE  Compiled successfully in 3715ms17:11:35
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:14:23
+
+ DONE  Compiled successfully in 3485ms17:14:27
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:14:28
+
+ DONE  Compiled successfully in 3494ms17:14:32
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:14:35
+
+ DONE  Compiled successfully in 3069ms17:14:38
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:15:31
+
+ DONE  Compiled successfully in 3515ms17:15:34
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:16:06
+
+ DONE  Compiled successfully in 3500ms17:16:09
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:19:07
+
+ DONE  Compiled successfully in 3102ms17:19:10
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:19:13
+
+ DONE  Compiled successfully in 2758ms17:19:16
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+
+ WAIT  Compiling...17:19:27
+
+ DONE  Compiled successfully in 2599ms17:19:30
+
+
+  App running at:
+  - Local:   http://127.0.0.1:8080 
+  - Network: http://127.0.0.1:8080
+

@@ -10,6 +10,7 @@ async function ensureCoreSchema() {
     CREATE TABLE IF NOT EXISTS users (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
       username VARCHAR(64) NOT NULL,
+      name VARCHAR(64) DEFAULT NULL,
       password_hash VARCHAR(255) NOT NULL,
       role ENUM('user','admin') NOT NULL DEFAULT 'user',
       avatar_url VARCHAR(255) DEFAULT NULL,
@@ -21,6 +22,9 @@ async function ensureCoreSchema() {
       KEY idx_users_role (role)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  // Add name column for existing databases (throws if already exists, caught silently)
+  try { await query('ALTER TABLE users ADD COLUMN name VARCHAR(64) DEFAULT NULL AFTER username'); } catch (_) {}
 
   await query(`
     CREATE TABLE IF NOT EXISTS friendships (
@@ -69,8 +73,8 @@ async function seedUser(username, password, role, avatarUrl) {
     return;
   }
   await query(
-    'INSERT INTO users (username, password_hash, role, avatar_url, email) VALUES (?,?,?,?,?)',
-    [username, hashPassword(password), role, avatarUrl, null]
+    'INSERT INTO users (username, name, password_hash, role, avatar_url, email) VALUES (?,?,?,?,?,?)',
+    [username, username, hashPassword(password), role, avatarUrl, null]
   );
 }
 

@@ -11,6 +11,7 @@ const friendRouter = require('./routes/friendRouter');
 const settingsRouter = require('./routes/settingsRouter');
 const aiRouter = require('./routes/aiRouter');
 const systemRouter = require('./routes/systemRouter');
+const qrRouter = require('./routes/qrRouter');
 const { ensureCoreSchema } = require('./services/schemaService');
 
 process.on('uncaughtException', (err) => {
@@ -105,18 +106,42 @@ app.post('/upload/file', upload.single('file'), (req, res) => {
   res.send({ filePath: publicPath, filename: req.file.originalname, size: req.file.size });
 });
 
-app.get('/api/health', (req, res) => {
-  const mysqlStatus = typeof mysqlManager.getStatus === 'function'
-    ? mysqlManager.getStatus()
-    : { ready: true, error: null };
-  const redisStatus = redisClient && typeof redisClient.getStatus === 'function'
-    ? redisClient.getStatus()
-    : { ready: true, error: null };
+app.get('/api/health', async (req, res) => {
+  const cfg = loadConfig();
+  const mysqlCfg = cfg.mysql || {};
+  const redisCfg = cfg.redis || {};
+
+  // MySQL test
+  const mysqlResult = { ready: false, error: null, host: mysqlCfg.host || '', port: mysqlCfg.port || 3306, latency: 0 };
+  try {
+    const t0 = Date.now();
+    const rows = await mysqlManager.query('SELECT 1 AS ok');
+    mysqlResult.ready = true;
+    mysqlResult.latency = Date.now() - t0;
+  } catch (err) {
+    mysqlResult.error = err.message || 'Connection failed';
+  }
+
+  // Redis test
+  const redisResult = { ready: false, error: null, host: redisCfg.host || '', port: redisCfg.port || 6379, latency: 0 };
+  try {
+    if (redisClient && typeof redisClient.ping === 'function') {
+      const t0 = Date.now();
+      await redisClient.ping();
+      redisResult.ready = true;
+      redisResult.latency = Date.now() - t0;
+    } else {
+      redisResult.error = 'Redis 未配置或不可用';
+    }
+  } catch (err) {
+    redisResult.error = err.message || 'Connection failed';
+  }
+
   res.json({
     status: 'ok',
     time: Date.now(),
-    mysql: mysqlStatus,
-    redis: redisStatus
+    mysql: mysqlResult,
+    redis: redisResult
   });
 });
 
@@ -126,6 +151,7 @@ app.use('/api/friends', friendRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/system', systemRouter);
+app.use('/api/auth/qr', qrRouter);
 
 app.use("/",express.static(distDir));
 app.use("/assets/images",express.static(uploadRoot));

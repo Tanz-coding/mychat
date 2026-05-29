@@ -305,13 +305,44 @@ const toLine=(name)=>{
 const getNetworkIPv4=()=>{
   const os = require("os");
   const network=os.networkInterfaces();
-  let ips=[];
+  const candidates=[];
   for (const key in network) {
-    ips=ips.concat(network[key])
+    (network[key] || []).forEach((item)=>{
+      if(item.family==='IPv4'&&!item.internal){
+        candidates.push({
+          ...item,
+          interfaceName:key
+        })
+      }
+    })
   }
-  return ips.filter((item)=>{
-    return item.family==='IPv4'&&!item.internal;
-  })[0]
+  const isVirtual=(item)=>{
+    const name=String(item.interfaceName || '').toLowerCase();
+    const address=String(item.address || '');
+    return (
+      name.includes('mihomo') ||
+      name.includes('vmware') ||
+      name.includes('virtual') ||
+      name.includes('vethernet') ||
+      name.includes('loopback') ||
+      address.startsWith('198.18.') ||
+      address.startsWith('198.19.') ||
+      address.startsWith('169.254.')
+    )
+  };
+  const preferred=(item)=>{
+    const name=String(item.interfaceName || '').toLowerCase();
+    if(name.includes('wlan') || name.includes('wi-fi') || name.includes('wireless')){
+      return 0;
+    }
+    if(name.includes('以太网') || name.includes('ethernet')){
+      return 1;
+    }
+    return 2;
+  };
+  const usable=candidates.filter((item)=>!isVirtual(item));
+  const list=(usable.length>0 ? usable : candidates).sort((a,b)=>preferred(a)-preferred(b));
+  return list[0] || { address:'127.0.0.1', interfaceName:'Loopback' }
 };
 module.exports={
   guid,

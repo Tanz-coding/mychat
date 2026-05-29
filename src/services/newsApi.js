@@ -81,11 +81,18 @@ export async function updateNews(id, payload, token) {
 }
 
 export async function deleteNews(id, token) {
-  const res = await fetch(`${API_BASE}/${id}`, {
-    method: 'DELETE',
-    headers: buildHeaders(token, false)
-  });
-  return handleResponse(res);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(`${API_BASE}/${id}`, {
+      method: 'DELETE',
+      headers: buildHeaders(token, false),
+      signal: controller.signal
+    });
+    return handleResponse(res);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function fetchCategories() {

@@ -92,7 +92,7 @@
           <button
             type="button"
             :class="{ active: loginTab === 'scan' }"
-            @click="loginTab = 'scan'"
+            @click="loginTab = 'scan'; startQrLogin()"
           >
             扫码登录
           </button>
@@ -122,8 +122,13 @@
         </div>
 
         <div v-else-if="loginMode === 'login' && loginTab === 'scan'" class="island-login__qr">
-          <div class="island-qr-grid" aria-label="模拟二维码"></div>
-          <p>打开 Q信移动端扫码登录。</p>
+          <canvas v-if="qrImageSrc" ref="qrCanvas" width="200" height="200" class="island-qr-canvas"></canvas>
+          <div v-else class="island-qr-loading">
+            <span>加载中...</span>
+          </div>
+          <p v-if="!qrPolling">打开 Q信移动端扫码登录。</p>
+          <p v-else>等待手机端确认...</p>
+          <button v-if="qrImageSrc" type="button" class="island-link-button" @click="refreshQrCode">刷新二维码</button>
         </div>
 
         <div v-else-if="loginMode === 'register'" class="island-login__fields">
@@ -318,7 +323,11 @@
                     <div>
                       <p class="island-message__meta">{{ message.author }} <span>{{ message.time }}</span></p>
                       <div class="island-message__bubble">
-                        <img v-if="message.type === 'image' || message.image" class="island-message__image" :src="message.image || message.text" :alt="message.text" />
+                        <img v-if="settings.imagePreview && (message.type === 'image' || message.image)" class="island-message__image" :src="message.image || message.text" :alt="message.text" />
+                        <a v-else-if="message.type === 'image' || message.image" class="island-message__file" :href="message.image || message.text" target="_blank" rel="noopener" download="qxin-image.png">
+                          <IslandSvgIcon name="image" />
+                          <span>图片预览已关闭，点击打开</span>
+                        </a>
                         <a v-else-if="message.type === 'file'" class="island-message__file" :href="message.fileUrl || message.text" target="_blank" rel="noopener" :download="fileName(message.fileUrl || message.text)">
                           <IslandSvgIcon name="file" />
                           <span>{{ fileName(message.fileUrl || message.text) }}</span>
@@ -343,7 +352,7 @@
 
                 <footer class="island-composer">
                   <div class="island-composer__tools">
-                    <button type="button" class="island-icon-button" @click.stop="toggleEmojiPanel" :disabled="isChatLocked">
+                    <button type="button" class="island-icon-button" @click.stop="toggleEmojiPanel" :disabled="isChatLocked || !settings.emojiRecommend">
                       <IslandSvgIcon name="about" />
                     </button>
                     <button type="button" class="island-icon-button" @click="triggerUpload('image')" :disabled="isChatLocked">
@@ -377,10 +386,10 @@
                     </transition>
                   </div>
                   <textarea
-                    v-model.trim="chatDraft"
+                    v-model="chatDraft"
                     rows="1"
                     :disabled="isChatLocked"
-                    :placeholder="isChatLocked ? lockedChatPlaceholder : '说点什么吧...（Enter 发送，Shift+Enter 换行）'"
+                    :placeholder="chatPlaceholder"
                     @keydown.enter.exact="handleChatEnter"
                     @keydown.enter.ctrl.exact.prevent="handleChatCtrlEnter"
                   ></textarea>
@@ -388,7 +397,7 @@
                     type="button"
                     class="island-primary-button"
                     :disabled="isChatLocked"
-                    @click="sendChatMessage"
+                    @click="sendChatMessage()"
                   >
                     发送                     <IslandSvgIcon name="send" />
                   </button>
@@ -400,21 +409,17 @@
                 <p>选择一个会话，开启愉快的沟通之旅。</p>
                 <img :src="assets.welcomeIsland" alt="小岛欢迎插画" />
                 <div class="island-empty-chat__stats">
-                  <article>
-                    <IslandSvgIcon name="chat" />
-                    <strong>未读消息</strong>
-                    <span>3 条未读</span>
-                  </article>
-                  <article>
-                    <IslandSvgIcon name="users" />
-                    <strong>提到我的</strong>
-                    <span>2 条消息</span>
-                  </article>
-                  <article>
-                    <IslandSvgIcon name="about" />
-                    <strong>收藏消息</strong>
-                    <span>1 条收藏</span>
-                  </article>
+                  <button
+                    v-for="stat in emptyChatStats"
+                    :key="stat.key"
+                    type="button"
+                    class="island-empty-stat-card"
+                    @click="handleEmptyChatStat(stat.key)"
+                  >
+                    <IslandSvgIcon :name="stat.icon" />
+                    <strong>{{ stat.title }}</strong>
+                    <span>{{ stat.text }}</span>
+                  </button>
                 </div>
                 <div class="island-note-card">
                   <strong>小贴士</strong>
@@ -677,13 +682,16 @@
                   <IslandSvgIcon name="plus" />
                 </button>
               </div>
-              <button
+              <div
                 v-for="thread in filteredAiThreads"
                 :key="thread.id"
-                type="button"
+                role="button"
+                tabindex="0"
                 class="island-session-card"
                 :class="{ active: activeAiThreadId === thread.id }"
                 @click="selectAiThread(thread.id)"
+                @keydown.enter.prevent="selectAiThread(thread.id)"
+                @keydown.space.prevent="selectAiThread(thread.id)"
               >
                 <img :src="assets.aiRobot" :alt="thread.title" />
                 <span class="island-session-card__body">
@@ -693,13 +701,15 @@
                 <span class="island-session-card__meta">
                   <time>{{ thread.time }}</time>
                   <b v-if="thread.badge">{{ thread.badge }}</b>
+                  <button type="button" class="island-session-card__delete" title="删除会话" @click.stop="deleteAiThread(thread.id)">
+                    <IslandSvgIcon name="trash" />
+                  </button>
                 </span>
-              </button>
+              </div>
               <button type="button" class="island-new-chat-button" @click="newAiThread">
                 <IslandSvgIcon name="plus" />
                 新建对话
               </button>
-              <img :src="assets.seaStrip" alt="海面装饰" />
             </aside>
 
             <section class="island-ai-main">
@@ -787,7 +797,20 @@
                   :class="{ mine: message.role === 'user' }"
                 >
                   <img :src="message.role === 'user' ? user.avatar : assets.aiRobot" :alt="message.role === 'user' ? '我的头像' : 'AI 头像'" />
-                  <p>{{ message.text }}</p>
+                  <div class="island-ai-message-card">
+                    <p>{{ message.text }}</p>
+                    <section v-if="message.articleDraft" class="island-ai-draft-card">
+                      <strong>{{ message.articleDraft.title }}</strong>
+                      <small>{{ message.articleDraft.summary }}</small>
+                      <div>
+                        <button type="button" class="island-soft-button" @click="useAiArticleDraft(message.articleDraft, false)">填入发布页</button>
+                        <button type="button" class="island-primary-button" @click="useAiArticleDraft(message.articleDraft, true)">
+                          发布到新闻中心
+                          <IslandSvgIcon name="send" />
+                        </button>
+                      </div>
+                    </section>
+                  </div>
                 </article>
               </div>
 
@@ -979,21 +1002,69 @@
               </section>
 
               <section class="island-admin-card">
-                <header><h2>用户增长趋势</h2></header>
-                <div class="island-line-chart">
-                  <span
-                    v-for="(point, index) in chartPoints"
-                    :key="'chart-' + index"
-                    :style="{ height: point + '%' }"
-                  ></span>
+                <header>
+                  <h2>用户增长趋势</h2>
+                  <span class="island-chart-meta">近 12 天 · {{ adminGrowthTotal }} 人</span>
+                </header>
+                <div v-if="userGrowthBars.length" class="island-line-chart island-line-chart--users">
+                  <button
+                    v-for="point in userGrowthBars"
+                    :key="point.date"
+                    type="button"
+                    :title="point.date + ' 新增 ' + point.newUsers + ' 人，累计 ' + point.totalUsers + ' 人'"
+                  >
+                    <span :style="{ height: point.height + '%' }">
+                      <i>{{ point.newUsers ? '+' + point.newUsers : '0' }}</i>
+                    </span>
+                    <small>{{ point.label }}</small>
+                  </button>
                 </div>
+                <p v-else class="island-chart-empty">暂无用户增长数据</p>
               </section>
 
               <section class="island-admin-card">
                 <header><h2>内容数据概览</h2></header>
-                <div class="island-donut">
-                  <strong>86</strong>
-                  <span>文章总数</span>
+                <div class="island-overview">
+                  <div class="island-overview__hero">
+                    <div class="island-donut">
+                      <strong>{{ adminOverviewTotal }}</strong>
+                      <span>文章总数</span>
+                    </div>
+                    <div class="island-overview__metrics">
+                      <article v-for="item in adminOverviewCards" :key="item.label">
+                        <span>{{ item.label }}</span>
+                        <strong>{{ item.value }}</strong>
+                        <small>{{ item.note }}</small>
+                      </article>
+                    </div>
+                  </div>
+                  <div class="island-overview__section">
+                    <h3>分类占比</h3>
+                    <button
+                      v-for="item in adminCategoryBreakdown"
+                      :key="item.name"
+                      type="button"
+                      class="island-overview-row"
+                      @click="activeCategory = item.name; navigate('news')"
+                    >
+                      <span>{{ item.name }}</span>
+                      <em><i :style="{ width: item.percent + '%' }"></i></em>
+                      <strong>{{ item.count }}</strong>
+                    </button>
+                  </div>
+                  <div class="island-overview__section">
+                    <h3>热门内容</h3>
+                    <button
+                      v-for="item in adminTopArticles"
+                      :key="item.id || item.title"
+                      type="button"
+                      class="island-overview-article"
+                      @click="openArticleFromAdmin(item)"
+                    >
+                      <span>{{ item.title }}</span>
+                      <small>{{ item.category }} · {{ item.views }} 次浏览</small>
+                    </button>
+                  </div>
                 </div>
               </section>
 
@@ -1008,6 +1079,25 @@
               </section>
             </div>
           </section>
+
+          <div v-if="showDeleteConfirm" class="island-modal-overlay" @click.self="showDeleteConfirm = false; deleteTarget = null">
+            <div class="island-modal-card island-delete-dialog">
+              <img class="island-delete-dialog__scene" :src="assets.adminMascot" alt="" aria-hidden="true" />
+              <span class="island-delete-dialog__icon">
+                <IslandSvgIcon name="trash" />
+              </span>
+              <div class="island-delete-dialog__body">
+                <small>内容管理</small>
+                <h2>确认删除这篇文章？</h2>
+                <p>《<strong>{{ deleteTarget && deleteTarget.title || '未命名' }}</strong>》将从新闻中心和管理列表中移除。</p>
+                <p class="island-delete-dialog__warning">删除后无法恢复，请确认这不是仍需保留的内容。</p>
+              </div>
+              <div class="island-modal-actions island-delete-dialog__actions">
+                <button type="button" class="island-soft-button" @click="showDeleteConfirm = false; deleteTarget = null">取消</button>
+                <button type="button" class="island-primary-button island-primary-button--danger" @click="confirmDeleteArticle">确认删除</button>
+              </div>
+            </div>
+          </div>
         </template>
 
         <template v-else-if="activePage === 'setting'">
@@ -1036,19 +1126,19 @@
             <article class="island-settings-card">
               <h2>外观</h2>
               <div class="island-theme-choice">
-                <button type="button" :class="{ active: settings.theme === 'fresh' }" @click="setSetting('theme', 'fresh')"><span></span>清新绿</button>
-                <button type="button" :class="{ active: settings.theme === 'light' }" @click="setSetting('theme', 'light')"><span></span>浅色</button>
-                <button type="button" :class="{ active: settings.theme === 'dark' }" @click="setSetting('theme', 'dark')"><span></span>深色</button>
+                <button type="button" :class="{ active: settings.theme === 'fresh' }" @click="setAppearance('theme', 'fresh')"><span></span>清新绿</button>
+                <button type="button" :class="{ active: settings.theme === 'light' }" @click="setAppearance('theme', 'light')"><span></span>浅色</button>
+                <button type="button" :class="{ active: settings.theme === 'dark' }" @click="setAppearance('theme', 'dark')"><span></span>深色</button>
               </div>
               <div class="island-font-size">
                 <span>字体大小</span>
-                <button type="button" :class="{ active: settings.fontSize === 'small' }" @click="setSetting('fontSize', 'small')">小</button>
-                <button type="button" :class="{ active: settings.fontSize === 'medium' }" @click="setSetting('fontSize', 'medium')">标准</button>
-                <button type="button" :class="{ active: settings.fontSize === 'large' }" @click="setSetting('fontSize', 'large')">大</button>
+                <button type="button" :class="{ active: settings.fontSize === 'small' }" @click="setAppearance('fontSize', 'small')">小</button>
+                <button type="button" :class="{ active: settings.fontSize === 'medium' }" @click="setAppearance('fontSize', 'medium')">标准</button>
+                <button type="button" :class="{ active: settings.fontSize === 'large' }" @click="setAppearance('fontSize', 'large')">大</button>
               </div>
               <label class="island-field">
                 <span>语言</span>
-                <select v-model="settings.language" @change="persistSettings">
+                <select v-model="settings.language" @change="setAppearance('language', settings.language)">
                   <option>简体中文</option>
                   <option>English</option>
                 </select>
@@ -1062,7 +1152,7 @@
                 :key="item.key"
                 type="button"
                 class="island-toggle-row"
-                @click="settings[item.key] = !settings[item.key]; persistSettings()"
+                @click="toggleNotification(item.key)"
               >
                 <span>
                   <strong>{{ item.label }}</strong>
@@ -1076,28 +1166,28 @@
             <article class="island-settings-card">
               <h2>消息设置</h2>
               <label class="island-settings-line">发送消息快捷键
-                <select v-model="settings.sendShortcut" @change="persistSettings">
+                <select v-model="settings.sendShortcut" @change="setMessageSetting('sendShortcut', settings.sendShortcut)">
                   <option value="enter">Enter 发送，Shift+Enter 换行</option>
                   <option value="ctrlEnter">Ctrl+Enter 发送，Enter 换行</option>
                 </select>
               </label>
               <label class="island-settings-line">消息记录
-                <select v-model="settings.historyDays" @change="persistSettings">
+                <select v-model="settings.historyDays" @change="setMessageSetting('historyDays', settings.historyDays)">
                   <option value="7">保留最近 7 天</option>
                   <option value="30">保留最近 30 天</option>
                   <option value="90">保留最近 90 天</option>
                   <option value="forever">永久保留</option>
                 </select>
               </label>
-              <button type="button" class="island-toggle-row" @click="settings.autoDownload = !settings.autoDownload; persistSettings()">
+              <button type="button" class="island-toggle-row" @click="toggleMessageSetting('autoDownload')">
                 <span><strong>自动下载文件</strong><small>开启后自动下载接收的文件</small></span>
                 <i :class="{ active: settings.autoDownload }"></i>
               </button>
-              <button type="button" class="island-toggle-row" @click="settings.imagePreview = !settings.imagePreview; persistSettings()">
+              <button type="button" class="island-toggle-row" @click="toggleMessageSetting('imagePreview')">
                 <span><strong>图片预览</strong><small>在聊天窗口中预览图片</small></span>
                 <i :class="{ active: settings.imagePreview }"></i>
               </button>
-              <button type="button" class="island-toggle-row" @click="settings.emojiRecommend = !settings.emojiRecommend; persistSettings()">
+              <button type="button" class="island-toggle-row" @click="toggleMessageSetting('emojiRecommend')">
                 <span><strong>表情推荐</strong><small>输入时推荐相关表情</small></span>
                 <i :class="{ active: settings.emojiRecommend }"></i>
               </button>
@@ -1136,20 +1226,147 @@
                 <div class="island-db-item">
                   <IslandSvgIcon name="news" />
                   <strong>MySQL 数据库</strong>
-                  <span>{{ aboutInfo && aboutInfo.mysql && aboutInfo.mysql.ready ? '已连接' : '待确认' }}</span>
+                  <span v-if="testingDb" class="island-db-testing">测试中...</span>
+                  <span v-else-if="dbTestResult.mysql !== null" :class="dbTestResult.mysql ? 'island-db-ok' : 'island-db-fail'">
+                    {{ dbTestResult.mysql ? '✅ 已连接 (' + dbTestResult.mysqlLatency + 'ms)' : '❌ 连接失败' }}
+                  </span>
+                  <span v-else>{{ aboutInfo && aboutInfo.mysql && aboutInfo.mysql.ready ? '已连接' : '待确认' }}</span>
+                  <p v-if="dbTestResult.mysqlError" class="island-db-error">{{ dbTestResult.mysqlError }}</p>
                   <p>地址 {{ dbSummary.mysql }}</p>
-                  <button type="button" class="island-soft-button" @click="loadAboutInfo">测试连接</button>
+                  <button type="button" class="island-soft-button" :disabled="testingDb" @click="testDbConnection">
+                    {{ testingDb ? '测试中...' : '测试连接' }}
+                  </button>
                 </div>
                 <div class="island-db-item">
                   <IslandSvgIcon name="admin" />
                   <strong>Redis 缓存</strong>
-                  <span>{{ aboutInfo && aboutInfo.redis && aboutInfo.redis.ready ? '已连接' : '待确认' }}</span>
+                  <span v-if="testingDb" class="island-db-testing">测试中...</span>
+                  <span v-else-if="dbTestResult.redis !== null" :class="dbTestResult.redis ? 'island-db-ok' : 'island-db-fail'">
+                    {{ dbTestResult.redis ? '✅ 已连接 (' + dbTestResult.redisLatency + 'ms)' : '⚠ 未启用' }}
+                  </span>
+                  <span v-else>{{ aboutInfo && aboutInfo.redis && aboutInfo.redis.ready ? '已连接' : '待确认' }}</span>
+                  <p v-if="dbTestResult.redisError" class="island-db-error">{{ dbTestResult.redisError }}</p>
                   <p>地址 {{ dbSummary.redis }}</p>
-                  <button type="button" class="island-soft-button" @click="loadAboutInfo">测试连接</button>
+                  <button type="button" class="island-soft-button" :disabled="testingDb" @click="testDbConnection">
+                    {{ testingDb ? '测试中...' : '测试连接' }}
+                  </button>
                 </div>
               </div>
             </article>
           </section>
+
+          <!-- Profile Edit Dialog -->
+          <div v-if="showProfileEditor" class="island-modal-overlay" @click.self="showProfileEditor = false">
+            <div class="island-modal-card">
+              <h2>编辑资料</h2>
+              <label class="island-field"><span>昵称</span><input v-model="profileForm.name" placeholder="你的昵称" /></label>
+              <label class="island-field"><span>头像地址</span><input v-model="profileForm.avatarUrl" placeholder="头像图片URL" /></label>
+              <label class="island-field"><span>个性签名</span><input v-model="profileForm.signature" placeholder="让每一天都充满绿意与希望" /></label>
+              <div class="island-modal-actions">
+                <button type="button" class="island-soft-button" @click="showProfileEditor = false">取消</button>
+                <button type="button" class="island-primary-button" @click="saveProfile">保存</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Password Change Dialog -->
+          <div v-if="showPasswordDialog" class="island-modal-overlay" @click.self="showPasswordDialog = false">
+            <div class="island-modal-card">
+              <h2>修改密码</h2>
+              <label class="island-field"><span>旧密码</span><input v-model="passwordForm.oldPwd" type="password" placeholder="输入旧密码" /></label>
+              <label class="island-field"><span>新密码</span><input v-model="passwordForm.newPwd" type="password" placeholder="输入新密码" /></label>
+              <label class="island-field"><span>确认密码</span><input v-model="passwordForm.confirmPwd" type="password" placeholder="再次输入新密码" /></label>
+              <div class="island-modal-actions">
+                <button type="button" class="island-soft-button" @click="showPasswordDialog = false">取消</button>
+                <button type="button" class="island-primary-button" @click="changePassword">确认修改</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Block List Dialog -->
+          <div v-if="showBlockList" class="island-modal-overlay" @click.self="showBlockList = false">
+            <div class="island-modal-card">
+              <h2>屏蔽列表 <small>({{ settings.blockedCount }} 人)</small></h2>
+              <p v-if="settings.blockedCount === 0" style="color:var(--island-muted);text-align:center;padding:20px">暂无被屏蔽的联系人</p>
+              <div v-else class="island-modal-list">
+                <div v-for="user in blockedUsers" :key="user.id" class="island-modal-row">
+                  <span>{{ user.name || user.username }}</span>
+                  <button type="button" class="island-soft-button" @click="unblockUser(user)">解除</button>
+                </div>
+              </div>
+              <div class="island-modal-actions">
+                <button type="button" class="island-primary-button" @click="showBlockList = false">关闭</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Device Management Dialog -->
+          <div v-if="showDevicesPanel" class="island-modal-overlay" @click.self="showDevicesPanel = false">
+            <div class="island-modal-card">
+              <h2>登录设备管理 <small>({{ loginDevices.length || settings.deviceCount }} 台设备)</small></h2>
+              <div class="island-modal-list">
+                <div v-for="(dev, i) in loginDevices" :key="i" class="island-modal-row">
+                  <span><strong>{{ dev.name || dev.deviceType || '设备' }}</strong><small style="margin-left:8px">{{ dev.ip }}</small></span>
+                  <span style="color:var(--island-muted);font-size:13px">{{ dev.time | friendlyTime }}</span>
+                </div>
+                <p v-if="!loginDevices.length" style="color:var(--island-muted);text-align:center;padding:20px">当前在线设备信息将在登录后显示</p>
+              </div>
+              <div class="island-modal-actions">
+                <button type="button" class="island-primary-button" @click="showDevicesPanel = false">关闭</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cache Management Dialog -->
+          <div v-if="showCachePanel" class="island-modal-overlay" @click.self="showCachePanel = false">
+            <div class="island-modal-card">
+              <h2>缓存管理</h2>
+              <div style="text-align:center;padding:16px">
+                <p>本地缓存 <strong>{{ settings.cacheUsed }} MB</strong></p>
+                <p style="color:var(--island-muted)">聊天图片、表情、头像等缓存文件</p>
+                <div style="margin:12px 0;background:var(--island-line);border-radius:8px;height:8px">
+                  <div :style="{ width: Math.min(settings.cacheUsed / 10 * 100, 100) + '%', background: 'var(--island-green-500)', height: '100%', borderRadius: '8px' }"></div>
+                </div>
+              </div>
+              <div class="island-modal-actions">
+                <button type="button" class="island-soft-button" @click="showCachePanel = false">取消</button>
+                <button type="button" class="island-primary-button" @click="clearSettingsCache(); showCachePanel = false">立即清理</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Backup Dialog -->
+          <div v-if="showBackupPanel" class="island-modal-overlay" @click.self="showBackupPanel = false">
+            <div class="island-modal-card">
+              <h2>聊天记录迁移</h2>
+              <p style="color:var(--island-muted);text-align:center;padding:8px">将聊天记录导出为 JSON 文件，便于备份和恢复</p>
+              <div class="island-modal-actions">
+                <button type="button" class="island-soft-button" @click="showBackupPanel = false">取消</button>
+                <button type="button" class="island-soft-button" @click="triggerMessageRestore">导入备份</button>
+                <button type="button" class="island-primary-button" @click="exportMessages(); showBackupPanel = false">导出聊天记录</button>
+              </div>
+              <input ref="messageBackupInput" class="island-hidden-input" type="file" accept="application/json,.json" @change="restoreMessagesFromFile" />
+            </div>
+          </div>
+
+          <!-- File Management Dialog -->
+          <div v-if="showFilesPanel" class="island-modal-overlay" @click.self="showFilesPanel = false">
+            <div class="island-modal-card">
+              <h2>文件管理</h2>
+              <p v-if="!uploadedFiles.length" style="color:var(--island-muted);text-align:center;padding:20px">暂无接收的文件</p>
+              <div v-else class="island-modal-list">
+                <div v-for="(file, i) in uploadedFiles" :key="i" class="island-modal-row">
+                  <span>{{ file.name || file.filename }}</span>
+                  <span style="color:var(--island-muted);font-size:13px">{{ file.sizeLabel || (file.size ? (file.size / 1024).toFixed(1) + ' KB' : '') }}</span>
+                  <button type="button" class="island-soft-button" @click="openStoredFile(file)">打开</button>
+                </div>
+              </div>
+              <div class="island-modal-actions">
+                <button type="button" class="island-soft-button" @click="refreshUploadedFiles">刷新</button>
+                <button type="button" class="island-primary-button" @click="showFilesPanel = false">关闭</button>
+              </div>
+            </div>
+          </div>
         </template>
 
         <template v-else-if="activePage === 'about'">
@@ -1240,6 +1457,7 @@
 import IslandLayout from "./IslandLayout.vue";
 import IslandSvgIcon from "./island-ui/IslandSvgIcon.vue";
 import { Manager } from "socket.io-client";
+import QRCode from "qrcode";
 import { expressions } from "./emoji";
 import { EMOJI_BASE_URL } from "./config";
 import { createComment, createNews, deleteNews, fetchAuditLogs, fetchNewsList, fetchStats, updateNews } from "../services/newsApi";
@@ -1339,6 +1557,10 @@ export default {
       pendingLoginPayload: null,
       loginMode: "login",
       loginTab: "account",
+      qrSessionId: "",
+      qrPollTimer: null,
+      qrPolling: false,
+      qrImageSrc: "",
       loginFocus: "idle",
       loginMouse: { x: 0, y: 0 },
       loginError: false,
@@ -1463,6 +1685,8 @@ export default {
       ],
       adminReady: false,
       adminLoading: false,
+      showDeleteConfirm: false,
+      deleteTarget: null,
       adminKeyword: "",
       adminStats: [
         { label: "文章总数", value: "0", note: "等待数据库统计", icon: "news" },
@@ -1472,7 +1696,7 @@ export default {
       ],
       adminRows: [],
       adminCategories: [],
-      chartPoints: [35, 48, 50, 70, 69, 88, 78, 92, 84, 96],
+      userGrowth: [],
       auditLogs: [],
       settings: {
         language: "简体中文",
@@ -1501,6 +1725,22 @@ export default {
         storageLimit: 5
       },
       settingsSaving: false,
+      // Setting dialogs state
+      showProfileEditor: false,
+      profileForm: { name: "", avatarUrl: "", signature: "" },
+      showPasswordDialog: false,
+      passwordForm: { oldPwd: "", newPwd: "", confirmPwd: "" },
+      showBlockList: false,
+      showDevicesPanel: false,
+      showCachePanel: false,
+      showBackupPanel: false,
+      showFilesPanel: false,
+      blockedUsers: [],
+      loginDevices: [],
+      uploadedFiles: [],
+      lastBackupAt: "",
+      testingDb: false,
+      dbTestResult: { mysql: null, mysqlError: "", mysqlLatency: 0, redis: null, redisError: "", redisLatency: 0 },
       aboutInfo: null,
       notificationItems: [
         { key: "messageNotice", label: "消息通知", desc: "接收新消息提醒" },
@@ -1606,6 +1846,46 @@ export default {
     currentMessages() {
       return this.messages[this.selectedSessionId] || [];
     },
+    unreadTotal() {
+      return this.sessions.reduce(function(total, session) {
+        return total + (Number(session.unread) || 0);
+      }, 0);
+    },
+    mentionMessages() {
+      const names = [this.user && this.user.name, this.loginUserRaw && this.loginUserRaw.username, this.loginUserRaw && this.loginUserRaw.name, "我"]
+        .filter(Boolean)
+        .map(function(name) {
+          return "@" + String(name);
+        });
+      const result = [];
+      Object.keys(this.messages || {}).forEach((sessionId) => {
+        (this.messages[sessionId] || []).forEach(function(message) {
+          const text = String(message.text || "");
+          if (!message.mine && names.some(function(name) { return text.indexOf(name) !== -1; })) {
+            result.push({ sessionId, message });
+          }
+        });
+      });
+      return result;
+    },
+    favoriteMessages() {
+      const result = [];
+      Object.keys(this.messages || {}).forEach((sessionId) => {
+        (this.messages[sessionId] || []).forEach(function(message) {
+          if (message.favorite || message.starred || message.collected || message.isFavorite) {
+            result.push({ sessionId, message });
+          }
+        });
+      });
+      return result;
+    },
+    emptyChatStats() {
+      return [
+        { key: "unread", icon: "chat", title: "未读消息", text: `${this.unreadTotal} 条未读` },
+        { key: "mentions", icon: "users", title: "提到我的", text: `${this.mentionMessages.length} 条消息` },
+        { key: "favorites", icon: "about", title: "收藏消息", text: `${this.favoriteMessages.length} 条收藏` }
+      ];
+    },
     isChatLocked() {
       return Boolean(this.currentSession && this.currentSession.raw && this.currentSession.raw.type === "user" && !this.currentSession.friend);
     },
@@ -1621,6 +1901,15 @@ export default {
         return "先接受好友申请，再开始聊天";
       }
       return "添加好友后即可开始聊天";
+    },
+    chatPlaceholder() {
+      if (this.isChatLocked) {
+        return this.lockedChatPlaceholder;
+      }
+      if (this.settings.sendShortcut === "ctrlEnter") {
+        return "说点什么吧...（Ctrl+Enter 发送，Enter 换行）";
+      }
+      return "说点什么吧...（Enter 发送，Shift+Enter 换行）";
     },
     filteredArticles() {
       const keyword = this.newsKeyword.toLowerCase();
@@ -1662,6 +1951,90 @@ export default {
         return !keyword || haystack.indexOf(keyword) !== -1;
       });
     },
+    adminOverviewTotal() {
+      const totalStat = this.adminStats.find(function(item) {
+        return item.label === "文章总数";
+      });
+      return this.adminReady && totalStat ? totalStat.value : String(this.adminRows.length || this.articles.length || 0);
+    },
+    adminOverviewCards() {
+      const total = this.adminRows.length || this.articles.length || 0;
+      const published = this.adminRows.filter(function(row) {
+        return row.rawStatus === "published" || row.status === "已发布";
+      }).length;
+      const draft = this.adminRows.filter(function(row) {
+        return row.rawStatus === "draft" || row.status === "草稿";
+      }).length;
+      const views = this.adminRows.reduce(function(sum, row) {
+        return sum + (Number(row.views) || 0);
+      }, 0);
+      const topCategory = this.adminCategories.slice().sort(function(a, b) {
+        return Number(b.count || 0) - Number(a.count || 0);
+      })[0];
+      return [
+        { label: "已发布", value: String(published || total), note: "可在新闻中心阅读" },
+        { label: "草稿", value: String(draft), note: "待完善内容" },
+        { label: "总浏览", value: String(views), note: "来自新闻指标" },
+        { label: "热门分类", value: topCategory ? topCategory.name : "暂无", note: topCategory ? `${topCategory.count} 篇内容` : "等待数据" }
+      ];
+    },
+    adminCategoryBreakdown() {
+      const rows = this.adminCategories.filter(function(item) {
+        return item.name !== "全部" && item.name !== "推荐";
+      });
+      const total = rows.reduce(function(sum, item) {
+        return sum + (Number(item.count) || 0);
+      }, 0);
+      return rows
+        .slice()
+        .sort(function(a, b) {
+          return Number(b.count || 0) - Number(a.count || 0);
+        })
+        .slice(0, 5)
+        .map(function(item) {
+          const count = Number(item.count) || 0;
+          return {
+            name: item.name,
+            count,
+            percent: total ? Math.max(8, Math.round((count / total) * 100)) : 8
+          };
+        });
+    },
+    adminTopArticles() {
+      return this.adminRows
+        .slice()
+        .sort(function(a, b) {
+          return (Number(b.views) || 0) - (Number(a.views) || 0);
+        })
+        .slice(0, 3);
+    },
+    userGrowthBars() {
+      const rows = Array.isArray(this.userGrowth) ? this.userGrowth : [];
+      if (!rows.length) {
+        return [];
+      }
+      const maxTotal = Math.max.apply(null, rows.map(function(item) {
+        return Number(item.totalUsers || item.newUsers || 0);
+      }).concat([1]));
+      return rows.map(function(item) {
+        const totalUsers = Number(item.totalUsers || 0);
+        const newUsers = Number(item.newUsers || 0);
+        return {
+          date: item.date || item.label,
+          label: item.label || item.date,
+          newUsers,
+          totalUsers,
+          height: Math.max(12, Math.round((Math.max(totalUsers, newUsers) / maxTotal) * 100))
+        };
+      });
+    },
+    adminGrowthTotal() {
+      const bars = this.userGrowthBars;
+      if (!bars.length) {
+        return "0";
+      }
+      return String(bars[bars.length - 1].totalUsers || 0);
+    },
     dbSummary() {
       const mysql = this.aboutInfo && this.aboutInfo.mysql ? this.aboutInfo.mysql : {};
       const redis = this.aboutInfo && this.aboutInfo.redis ? this.aboutInfo.redis : {};
@@ -1686,11 +2059,13 @@ export default {
   },
   mounted() {
     this.loadAiThreads();
+    this.loadSettings();
     window.setTimeout(() => {
       this.adminReady = true;
     }, 300);
   },
   beforeDestroy() {
+    this.stopQrPolling();
     if (this.socket) {
       this.socket.close();
     }
@@ -1700,6 +2075,7 @@ export default {
       this.loginMode = mode;
       if (mode !== "login") {
         this.loginTab = "account";
+        this.stopQrPolling();
       }
       if (mode === "reset" && !this.resetForm.account) {
         this.resetForm.account = this.loginForm.account;
@@ -1737,8 +2113,7 @@ export default {
     },
     login() {
       if (this.loginTab === "scan") {
-        this.pulse("扫码登录暂未接入后端，请使用账号登录");
-        this.triggerLoginError();
+        this.startQrLogin();
         return;
       }
       if (this.loginTab === "account" && (!this.loginForm.account || !this.loginForm.password)) {
@@ -1765,6 +2140,88 @@ export default {
         this.initSocket();
         this.pulse("正在连接后端登录...");
       }
+    },
+    async startQrLogin() {
+      this.stopQrPolling();
+      this.qrImageSrc = "";
+      try {
+        const res = await fetch("/api/auth/qr/generate");
+        if (!res.ok) throw new Error("生成二维码失败");
+        const data = await res.json();
+        this.qrSessionId = data.sessionId;
+        // Generate QR code as data URL
+        const qrContent = JSON.stringify({
+          action: "qr_login",
+          sessionId: data.sessionId,
+          host: data.host
+        });
+        this.qrImageSrc = await QRCode.toDataURL(qrContent, { width: 200, margin: 1 });
+        this.$nextTick(() => {
+          if (this.$refs.qrCanvas && this.qrImageSrc) {
+            const img = new Image();
+            img.onload = () => {
+              const ctx = this.$refs.qrCanvas.getContext("2d");
+              if (ctx) {
+                ctx.clearRect(0, 0, 200, 200);
+                ctx.drawImage(img, 0, 0, 200, 200);
+              }
+            };
+            img.src = this.qrImageSrc;
+          }
+        });
+        this.qrPolling = true;
+        this.pollQrStatus();
+      } catch (err) {
+        this.pulse("生成二维码失败：" + (err.message || "网络错误"));
+        this.qrPolling = false;
+      }
+    },
+    pollQrStatus() {
+      if (!this.qrSessionId || !this.qrPolling) return;
+      this.qrPollTimer = window.setTimeout(async () => {
+        if (!this.qrPolling || !this.qrSessionId) return;
+        try {
+          const res = await fetch(`/api/auth/qr/status/${this.qrSessionId}`);
+          const data = await res.json();
+          if (data.status === "confirmed") {
+            this.stopQrPolling();
+            this.pulse("扫码成功！正在登录...");
+            // Auto-login with the returned token
+            if (data.token && data.user) {
+              this.token = data.token;
+              this.loginUserRaw = data.user;
+              this.user.name = data.user.username || data.user.name;
+              this.user.role = data.user.role || "online";
+              this.user.avatar = data.user.avatarUrl || this.user.avatar;
+              this.isLoggedIn = true;
+              this.isAdmin = data.user.role === "admin";
+              // Init socket with the new token
+              this.initSocket();
+              this.pulse("扫码登录成功！");
+            } else {
+              this.pulse("确认成功，请手动登录");
+            }
+          } else if (data.status === "expired") {
+            this.stopQrPolling();
+            this.pulse("二维码已过期，请刷新");
+          } else {
+            // Keep desktop login confirmation responsive after the phone approves it.
+            this.pollQrStatus();
+          }
+        } catch (err) {
+          this.pollQrStatus(); // Retry on error
+        }
+      }, 600);
+    },
+    stopQrPolling() {
+      this.qrPolling = false;
+      if (this.qrPollTimer) {
+        window.clearTimeout(this.qrPollTimer);
+        this.qrPollTimer = null;
+      }
+    },
+    refreshQrCode() {
+      this.startQrLogin();
     },
     async registerAccount() {
       if (!this.registerForm.name || !this.registerForm.account || !this.registerForm.password) {
@@ -1925,6 +2382,39 @@ export default {
         }
         this.selectedSessionId = id;
         session.unread = 0;
+      }
+    },
+    handleEmptyChatStat(key) {
+      if (key === "unread") {
+        const session = this.sessions.find(function(item) {
+          return Number(item.unread || 0) > 0;
+        });
+        if (session) {
+          this.selectSession(session.id);
+          this.pulse("已跳转到未读会话：" + session.name);
+        } else {
+          this.pulse("当前没有未读消息");
+        }
+        return;
+      }
+      if (key === "mentions") {
+        const mention = this.mentionMessages[0];
+        if (mention) {
+          this.selectSession(mention.sessionId);
+          this.pulse("已跳转到提到你的消息");
+        } else {
+          this.pulse("当前没有提到你的消息");
+        }
+        return;
+      }
+      if (key === "favorites") {
+        const favorite = this.favoriteMessages[0];
+        if (favorite) {
+          this.selectSession(favorite.sessionId);
+          this.pulse("已跳转到收藏消息所在会话");
+        } else {
+          this.pulse("当前没有收藏消息");
+        }
       }
     },
     async addFriend(session) {
@@ -2146,7 +2636,15 @@ export default {
     },
     sendChatMessage(content, messageType) {
       const outgoingType = messageType || "text";
-      const outgoingContent = content || this.chatDraft;
+      const isEventPayload = content && typeof content === "object" && (
+        (typeof Event !== "undefined" && content instanceof Event) ||
+        typeof content.preventDefault === "function" ||
+        typeof content.stopPropagation === "function" ||
+        content.target
+      );
+      const safeContent = isEventPayload ? "" : content;
+      const baseContent = safeContent || this.chatDraft;
+      const outgoingContent = outgoingType === "text" ? String(baseContent || "").trim() : baseContent;
       if (!this.currentSession) {
         this.pulse("请先选择一个会话");
         return;
@@ -2200,6 +2698,7 @@ export default {
       if (outgoingType === "text") {
         this.chatDraft = "";
       }
+      this.updateStorageUsage();
       this.pulse("消息已发送");
     },
     openArticle(id) {
@@ -2500,6 +2999,26 @@ export default {
       this.persistAiThreads();
       this.pulse("已创建新对话");
     },
+    deleteAiThread(id) {
+      const index = this.aiThreads.findIndex(function(thread) {
+        return thread.id === id;
+      });
+      if (index === -1) {
+        return;
+      }
+      this.aiThreads.splice(index, 1);
+      this.$delete(this.aiHistory, id);
+      if (!this.aiThreads.length) {
+        this.aiThreads = [{ id: "welcome", title: "AI 助手", model: "智能对话 · " + this.aiModel, time: "现在", badge: 0 }];
+        this.$set(this.aiHistory, "welcome", []);
+      }
+      if (this.activeAiThreadId === id) {
+        this.activeAiThreadId = this.aiThreads[0].id;
+        this.aiMessages = (this.aiHistory[this.activeAiThreadId] || []).slice();
+      }
+      this.persistAiThreads();
+      this.pulse("会话已删除");
+    },
     selectAiThread(id) {
       this.activeAiThreadId = id;
       this.aiMessages = (this.aiHistory[id] || []).slice();
@@ -2561,7 +3080,9 @@ export default {
         this.aiMessages.push({
           id: Date.now() + 1,
           role: "assistant",
-          text: payload.answer || "AI 助手暂时没有返回内容。"
+          text: payload.answer || "AI 助手暂时没有返回内容。",
+          articleDraft: payload.articleDraft || null,
+          newsReferences: payload.newsReferences || []
         });
       } catch (error) {
         this.aiMessages.push({
@@ -2572,6 +3093,27 @@ export default {
       }
       this.$set(this.aiHistory, this.activeAiThreadId, this.aiMessages.slice());
       this.persistAiThreads();
+    },
+    useAiArticleDraft(draft, publishNow) {
+      if (!draft) {
+        return;
+      }
+      const fallbackCategory = this.newsCategories.indexOf(draft.categoryName) !== -1 ? draft.categoryName : "社区动态";
+      this.publishForm = {
+        title: draft.title || "",
+        tags: Array.isArray(draft.tags) ? draft.tags.join("，") : (draft.tags || ""),
+        category: fallbackCategory,
+        summary: draft.summary || "",
+        content: draft.content || "",
+        visibility: "public"
+      };
+      this.editingArticleId = null;
+      if (publishNow) {
+        this.publishArticle();
+        return;
+      }
+      this.activePage = "publish";
+      this.pulse("AI 草稿已填入发布页");
     },
     updateAiThreadAfterMessage(text) {
       if (!this.activeAiThreadId) {
@@ -2586,6 +3128,89 @@ export default {
         thread.time = "刚刚";
         thread.badge = 0;
       }
+    },
+    ensureDesktopNotificationPermission() {
+      if (typeof window === "undefined" || !("Notification" in window)) {
+        this.pulse("当前环境不支持桌面通知");
+        return;
+      }
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+          this.pulse(permission === "granted" ? "桌面通知授权成功" : "桌面通知未授权");
+        }).catch(() => this.pulse("桌面通知授权失败"));
+      }
+    },
+    playNotificationSound() {
+      try {
+        const audio = new Audio((process.env.BASE_URL || "") + "static/8400.mp3");
+        audio.volume = 0.35;
+        audio.play().catch(function() {});
+      } catch (error) {
+        // 浏览器禁止自动播放时忽略
+      }
+    },
+    notifyIncomingMessage(session, from, message, type) {
+      if (!this.settings.messageNotice) {
+        return;
+      }
+      if (session && session.raw && session.raw.type === "group" && !this.settings.groupNotice) {
+        return;
+      }
+      const title = from && from.name ? from.name : (session && session.name ? session.name : "Q信新消息");
+      const body = type === "image" ? "发来一张图片" : (type === "file" ? "发来文件：" + this.fileName(message) : String(message || ""));
+      if (this.settings.soundNotice) {
+        this.playNotificationSound();
+      }
+      if (this.settings.desktopNotice && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        try {
+          new Notification(title, { body: body.slice(0, 80) });
+        } catch (error) {
+          // 通知失败不影响聊天
+        }
+      }
+    },
+    triggerAutoDownload(url, type) {
+      if (!url) {
+        return;
+      }
+      try {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = type === "image" ? "qxin-image.png" : this.fileName(url);
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+      } catch (error) {
+        this.pulse("自动下载失败，可在文件管理中手动打开");
+      }
+    },
+    applyHistoryRetention() {
+      const days = this.settings.historyDays;
+      if (!days || days === "forever") {
+        return;
+      }
+      const keepAfter = Date.now() - Number(days) * 24 * 60 * 60 * 1000;
+      Object.keys(this.messages || {}).forEach((sessionId) => {
+        const kept = (this.messages[sessionId] || []).filter(function(message) {
+          const timestamp = Number(message.id) || Date.now();
+          return timestamp >= keepAfter;
+        });
+        this.$set(this.messages, sessionId, kept);
+      });
+    },
+    updateStorageUsage() {
+      let bytes = 0;
+      try {
+        bytes += JSON.stringify(this.messages || {}).length;
+        bytes += JSON.stringify(this.aiHistory || {}).length;
+      } catch (error) {
+        bytes = 0;
+      }
+      const files = this.refreshUploadedFiles();
+      bytes += files.length * 128 * 1024;
+      const usedGb = Math.max(0.01, bytes / 1024 / 1024 / 1024);
+      this.$set(this.settings, "storageUsed", Number(usedGb.toFixed(2)));
+      this.$set(this.settings, "cacheUsed", Math.max(0, Math.round(bytes / 1024 / 1024)));
     },
     pulse(message) {
       this.toast = message;
@@ -2761,6 +3386,7 @@ export default {
         type: type || "text",
         mine: this.loginUserRaw && from && from.id === this.loginUserRaw.id
       });
+      const incoming = !(this.loginUserRaw && from && from.id === this.loginUserRaw.id);
       const session = this.sessions.find((item) => item.id === sessionId);
       if (session) {
         session.preview = type === "image" ? "已发送图片" : (type === "file" ? "已发送文件：" + this.fileName(message) : String(message || ""));
@@ -2769,6 +3395,13 @@ export default {
           session.unread = (session.unread || 0) + 1;
         }
       }
+      if (incoming) {
+        this.notifyIncomingMessage(session, from, message, type);
+        if (this.settings.autoDownload && (type === "file" || type === "image")) {
+          this.triggerAutoDownload(String(message || ""), type);
+        }
+      }
+      this.updateStorageUsage();
     },
     upsertOnlineUser(user) {
       if (!user || !user.id || (this.loginUserRaw && user.id === this.loginUserRaw.id)) {
@@ -2873,6 +3506,8 @@ export default {
       messages.forEach((item) => {
         this.handleSocketMessage(item.from, item.to, item.content, item.type);
       });
+      this.applyHistoryRetention();
+      this.updateStorageUsage();
     },
     loadFriends() {
       if (!this.token) {
@@ -2906,6 +3541,9 @@ export default {
       } catch (error) {
         // 本地设置读取失败时继续使用默认值
       }
+      this.applyHistoryRetention();
+      this.updateStorageUsage();
+      this.applyAppearance();
       if (!this.token) {
         return;
       }
@@ -2913,6 +3551,9 @@ export default {
         .then((payload) => {
           if (payload && payload.settings) {
             this.settings = Object.assign({}, this.settings, payload.settings);
+            this.applyHistoryRetention();
+            this.updateStorageUsage();
+            this.applyAppearance();
           }
         })
         .catch(function() {});
@@ -2921,20 +3562,244 @@ export default {
       this.$set(this.settings, key, value);
       this.persistSettings();
     },
-    runSettingAction(action) {
-      const messages = {
-        profile: "资料编辑已打开，可更换头像和个人签名",
-        block: "屏蔽列表已打开，当前没有被屏蔽的联系人",
-        devices: "登录设备已同步，当前共 " + this.settings.deviceCount + " 台设备",
-        security: "账号安全中心已打开，可进行密码和手机绑定管理",
-        cache: "缓存详情已刷新，当前使用 " + this.settings.cacheUsed + " MB",
-        backup: "聊天记录迁移已准备，可继续备份或恢复",
-        files: "文件管理已打开，可查看接收的图片与文档"
+    setAppearance(key, value) {
+      this.$set(this.settings, key, value);
+      this.persistSettings();
+      this.applyAppearance();
+      const labels = {
+        fresh: "清新绿",
+        light: "浅色",
+        dark: "深色",
+        small: "小字号",
+        medium: "标准字号",
+        large: "大字号"
       };
-      this.pulse(messages[action] || "设置项已打开");
+      if (key === "theme") {
+        this.pulse("外观已切换为" + (labels[value] || value));
+      } else if (key === "fontSize") {
+        this.pulse("字体大小已切换为" + (labels[value] || value));
+      } else if (key === "language") {
+        this.pulse("语言已切换为" + value);
+      }
+    },
+    setMessageSetting(key, value) {
+      this.$set(this.settings, key, value);
+      if (key === "historyDays") {
+        this.applyHistoryRetention();
+        this.updateStorageUsage();
+      }
+      this.persistSettings();
+      const messages = {
+        sendShortcut: "发送快捷键已更新",
+        historyDays: "消息记录保留规则已更新"
+      };
+      this.pulse(messages[key] || "消息设置已保存");
+    },
+    toggleMessageSetting(key) {
+      this.$set(this.settings, key, !this.settings[key]);
+      if (key === "imagePreview" && !this.settings.imagePreview) {
+        this.pulse("图片预览已关闭，聊天中将显示为可打开的文件");
+      } else if (key === "autoDownload" && this.settings.autoDownload) {
+        this.pulse("自动下载已开启，收到文件时会尝试保存");
+      } else if (key === "emojiRecommend" && !this.settings.emojiRecommend) {
+        this.isEmojiPanelOpen = false;
+        this.pulse("表情推荐已关闭");
+      } else {
+        this.pulse("消息设置已保存");
+      }
+      this.persistSettings();
+    },
+    applyAppearance() {
+      if (typeof document === "undefined") {
+        return;
+      }
+      document.documentElement.lang = this.settings.language === "English" ? "en" : "zh-CN";
+      document.documentElement.setAttribute("data-qxin-theme", this.settings.theme || "fresh");
+      document.documentElement.setAttribute("data-qxin-font", this.settings.fontSize || "medium");
+    },
+    toggleNotification(key) {
+      this.$set(this.settings, key, !this.settings[key]);
+      if (key === "desktopNotice" && this.settings.desktopNotice) {
+        this.ensureDesktopNotificationPermission();
+      }
+      if (key === "soundNotice" && this.settings.soundNotice) {
+        this.playNotificationSound();
+      }
+      this.persistSettings();
+      const item = this.notificationItems.find(function(entry) {
+        return entry.key === key;
+      });
+      this.pulse((item ? item.label : "通知") + (this.settings[key] ? "已开启" : "已关闭"));
+    },
+    runSettingAction(action) {
+      switch (action) {
+        case "profile":
+          this.profileForm.name = this.user.name || "";
+          this.profileForm.avatarUrl = this.user.avatar || "";
+          this.showProfileEditor = true;
+          break;
+        case "block": this.showBlockList = true; break;
+        case "devices": this.showDevicesPanel = true; break;
+        case "security": this.showPasswordDialog = true; break;
+        case "cache": this.updateStorageUsage(); this.showCachePanel = true; break;
+        case "backup": this.showBackupPanel = true; break;
+        case "files": this.refreshUploadedFiles(); this.showFilesPanel = true; break;
+        default: this.pulse("设置项已打开");
+      }
+    },
+    async saveProfile() {
+      if (!this.token) { this.pulse("请先登录"); return; }
+      try {
+        const res = await fetch("/api/auth/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + this.token },
+          body: JSON.stringify({ name: this.profileForm.name, avatarUrl: this.profileForm.avatarUrl, signature: this.profileForm.signature })
+        });
+        if (!res.ok) throw new Error((await res.json()).message || "保存失败");
+        const data = await res.json();
+        if (data.user) {
+          this.user.name = data.user.name;
+          this.user.avatar = data.user.avatarUrl || this.user.avatar;
+          this.loginUserRaw = Object.assign({}, this.loginUserRaw, data.user);
+        }
+        this.showProfileEditor = false;
+        this.pulse("资料已更新");
+      } catch (err) {
+        this.pulse(err.message || "保存失败");
+      }
+    },
+    async changePassword() {
+      const { oldPwd, newPwd, confirmPwd } = this.passwordForm;
+      if (!oldPwd || !newPwd) { this.pulse("请输入旧密码和新密码"); return; }
+      if (newPwd !== confirmPwd) { this.pulse("两次密码不一致"); return; }
+      if (newPwd.length < 3) { this.pulse("新密码至少3位"); return; }
+      try {
+        const res = await fetch("/api/auth/password", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + this.token },
+          body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd })
+        });
+        if (!res.ok) throw new Error((await res.json()).message || "修改失败");
+        this.showPasswordDialog = false;
+        this.passwordForm = { oldPwd: "", newPwd: "", confirmPwd: "" };
+        this.pulse("密码修改成功");
+      } catch (err) {
+        this.pulse(err.message || "密码修改失败");
+      }
+    },
+    exportMessages() {
+      const backup = {
+        app: "Q信 MyChat",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        user: this.user.name,
+        sessions: this.sessions.map(function(session) {
+          return {
+            id: session.id,
+            name: session.name,
+            description: session.description,
+            avatar: session.avatar,
+            raw: session.raw || null
+          };
+        }),
+        messages: this.messages
+      };
+      this.downloadJson(backup, "qxin-chat-backup-" + Date.now() + ".json");
+      this.lastBackupAt = backup.exportedAt;
+      this.pulse("聊天记录已导出");
+    },
+    downloadJson(payload, filename) {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    },
+    triggerMessageRestore() {
+      const input = this.$refs.messageBackupInput;
+      if (input) {
+        input.click();
+      }
+    },
+    restoreMessagesFromFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) {
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const payload = JSON.parse(reader.result || "{}");
+          if (!payload.messages || typeof payload.messages !== "object") {
+            throw new Error("备份文件格式不正确");
+          }
+          Object.keys(payload.messages).forEach((key) => {
+            if (Array.isArray(payload.messages[key])) {
+              this.$set(this.messages, key, payload.messages[key]);
+            }
+          });
+          if (Array.isArray(payload.sessions)) {
+            payload.sessions.forEach((session) => {
+              if (session && session.id && !this.sessions.find((item) => item.id === session.id)) {
+                this.sessions.push(Object.assign({ unread: 0, friend: true }, session));
+              }
+            });
+          }
+          this.applyHistoryRetention();
+          this.refreshUploadedFiles();
+          this.updateStorageUsage();
+          this.showBackupPanel = false;
+          this.pulse("聊天记录已导入");
+        } catch (error) {
+          this.pulse(error.message || "导入失败，请检查备份文件");
+        } finally {
+          event.target.value = "";
+        }
+      };
+      reader.readAsText(file, "utf-8");
+    },
+    refreshUploadedFiles() {
+      const files = [];
+      Object.keys(this.messages || {}).forEach((sessionId) => {
+        const session = this.sessions.find((item) => item.id === sessionId);
+        (this.messages[sessionId] || []).forEach((message) => {
+          const url = message.fileUrl || (message.type === "image" ? message.image : "");
+          if (!url) {
+            return;
+          }
+          files.push({
+            name: message.type === "image" ? "聊天图片" : this.fileName(url),
+            filename: this.fileName(url),
+            url,
+            type: message.type,
+            sessionName: session ? session.name : sessionId,
+            sizeLabel: message.type === "image" ? "图片" : "文件"
+          });
+        });
+      });
+      this.uploadedFiles = files;
+      return files;
+    },
+    openStoredFile(file) {
+      if (!file || !file.url) {
+        this.pulse("文件地址不可用");
+        return;
+      }
+      window.open(file.url, "_blank", "noopener");
     },
     clearSettingsCache() {
+      try {
+        window.localStorage.removeItem("qxin_ai_threads");
+      } catch (error) {
+        // 本地缓存不可用时忽略
+      }
       this.$set(this.settings, "cacheUsed", 0);
+      this.$set(this.settings, "storageUsed", 0);
+      this.refreshUploadedFiles();
       this.persistSettings();
       this.pulse("缓存清理完成");
     },
@@ -2955,6 +3820,7 @@ export default {
         .then((payload) => {
           if (payload && payload.settings) {
             this.settings = Object.assign({}, this.settings, payload.settings);
+            this.applyAppearance();
           }
           this.pulse("设置已保存");
         })
@@ -2984,14 +3850,29 @@ export default {
       this.navigate("publish");
       this.pulse("已载入文章，可继续编辑");
     },
-    removeAdminArticle(row) {
+    openArticleFromAdmin(row) {
       if (!row) {
         return;
       }
+      this.currentArticleId = row.id;
+      this.activeCategory = "全部";
+      this.newsView = "detail";
+      this.navigate("news");
+    },
+    removeAdminArticle(row) {
+      if (!row) return;
+      this.deleteTarget = row;
+      this.showDeleteConfirm = true;
+    },
+    confirmDeleteArticle() {
+      const row = this.deleteTarget;
+      if (!row) return;
       const id = row.id;
-      this.articles = this.articles.filter(function(article) {
-        return article.id !== id;
-      });
+      this.showDeleteConfirm = false;
+      this.deleteTarget = null;
+      // Optimistic remove from list
+      this.articles = this.articles.filter(a => a.id !== id);
+      this.adminRows = this.adminRows.filter(r => r.id !== id);
       this.refreshAdminFromLocal();
       if (this.currentArticleId === id && this.featuredArticle) {
         this.currentArticleId = this.featuredArticle.id;
@@ -2999,9 +3880,9 @@ export default {
       if (this.token && id && String(id).indexOf("local-") !== 0 && String(id).indexOf("local-news-") !== 0) {
         deleteNews(id, this.token)
           .then(() => this.loadAdminData(true))
-          .catch((error) => this.pulse(error.message || "本地已删除，后端删除失败"));
+          .catch(err => this.pulse(err.message || "后端删除失败，已从列表移除"));
       }
-      this.pulse("文章已删除");
+      this.pulse("《" + (row.title || "未命名") + "》已删除");
     },
     loadAdminData(force) {
       if (!this.token || !this.isAdmin || (this.adminLoading && !force)) {
@@ -3017,7 +3898,7 @@ export default {
         .then(([stats, newsPayload, logs]) => {
           if (stats) {
             const totalNews = stats.totalNews || stats.newsTotal || stats.news || (stats.perCategory || []).reduce((sum, item) => sum + Number(item.newsCount || 0), 0);
-            const authorCount = stats.totalUsers || (stats.perAuthor || []).length;
+            const authorCount = stats.totalAuthors || (stats.perAuthor || []).length;
             const categoryCount = stats.totalCategories || (stats.perCategory || []).length;
             this.adminStats = [
               { label: "文章总数", value: String(totalNews), note: "来自数据库统计", icon: "news" },
@@ -3034,6 +3915,7 @@ export default {
                 return { name, count: remoteCounts[name] || 0 };
               });
             }
+            this.userGrowth = Array.isArray(stats.userGrowth) ? stats.userGrowth : [];
           }
           const list = Array.isArray(newsPayload) ? newsPayload : (newsPayload && (newsPayload.data || newsPayload.list || newsPayload.items)) || [];
           if (list.length) {
@@ -3062,6 +3944,31 @@ export default {
           this.aboutInfo = payload;
         })
         .catch(function() {});
+      this.testDbConnection();
+    },
+    async testDbConnection() {
+      this.testingDb = true;
+      this.dbTestResult = { mysql: null, mysqlError: "", mysqlLatency: 0, redis: null, redisError: "", redisLatency: 0 };
+      try {
+        const res = await fetch("/api/health");
+        const data = await res.json();
+        if (data.mysql) {
+          this.dbTestResult.mysql = data.mysql.ready;
+          this.dbTestResult.mysqlError = data.mysql.error || "";
+          this.dbTestResult.mysqlLatency = data.mysql.latency || 0;
+        }
+        if (data.redis) {
+          this.dbTestResult.redis = data.redis.ready;
+          this.dbTestResult.redisError = data.redis.error || "";
+          this.dbTestResult.redisLatency = data.redis.latency || 0;
+        }
+      } catch (err) {
+        this.dbTestResult.mysql = false;
+        this.dbTestResult.mysqlError = err.message || "请求失败";
+        this.dbTestResult.redis = false;
+        this.dbTestResult.redisError = err.message || "请求失败";
+      }
+      this.testingDb = false;
     },
     loadNewsFromApi() {
       fetchNewsList({ page: 1, pageSize: 12 }, this.token)
