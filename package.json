@@ -74,7 +74,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "src/assets/images/main-logo.png"
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": true,

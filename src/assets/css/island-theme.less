@@ -247,9 +247,19 @@ select:focus-visible {
 }
 
 .island-sidebar__logo {
-  font-size: 30px;
-  font-weight: 900;
-  letter-spacing: 0;
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  background: rgba(255, 252, 244, 0.92);
+  box-shadow: 0 12px 18px rgba(3, 28, 17, 0.22);
+}
+
+.island-sidebar__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .island-sidebar__sub {
@@ -605,6 +615,29 @@ select:focus-visible {
   display: block;
   margin-top: 4px;
   font-weight: 700;
+}
+
+.island-brand-logo {
+  display: block;
+  width: 74px;
+  height: 74px;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.76);
+  border-radius: 22px;
+  background: rgba(255, 252, 244, 0.92);
+  box-shadow: 0 12px 20px rgba(3, 28, 17, 0.22);
+}
+
+.island-brand-logo--small {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+}
+
+.island-brand-logo--large {
+  width: 104px;
+  height: 104px;
+  border-radius: 28px;
 }
 
 .island-login__avatar {
@@ -4285,7 +4318,8 @@ select:focus-visible {
   }
 
   .island-sidebar__logo {
-    font-size: 28px;
+    width: 52px;
+    height: 52px;
   }
 
   .island-sidebar__profile {

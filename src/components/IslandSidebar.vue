@@ -1,7 +1,9 @@
 <template>
   <aside class="island-sidebar">
     <div class="island-sidebar__brand">
-      <div class="island-sidebar__logo">Q信</div>
+      <div class="island-sidebar__logo">
+        <img :src="appLogo" alt="Q信 Logo" />
+      </div>
       <div class="island-sidebar__sub">MyChat</div>
     </div>
 
@@ -32,11 +34,17 @@
 
 <script>
 import IslandSvgIcon from "./island-ui/IslandSvgIcon.vue";
+import appLogo from "../assets/images/island-ui/ai-robot.png";
 
 export default {
   name: "IslandSidebar",
   components: {
     IslandSvgIcon
+  },
+  data() {
+    return {
+      appLogo
+    };
   },
   props: {
     navItems: {

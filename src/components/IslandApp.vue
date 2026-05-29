@@ -3,7 +3,7 @@
     <section v-if="!isLoggedIn" class="island-login">
       <aside class="island-login__rail">
         <div class="island-login__brand">
-          <strong>Q信</strong>
+          <img class="island-brand-logo" :src="assets.aiRobot" alt="Q信 Logo" />
           <span>MyChat</span>
         </div>
         <img class="island-login__avatar" :src="user.avatar" alt="登录用户头像" />
@@ -32,7 +32,7 @@
         @mousemove="handleLoginMouseMove"
       >
         <div class="island-login__stage-brand">
-          <span>Q信</span>
+          <img class="island-brand-logo island-brand-logo--small" :src="assets.aiRobot" alt="Q信 Logo" />
           <strong>MyChat</strong>
         </div>
         <div class="island-characters-wrapper">
@@ -74,7 +74,7 @@
 
       <form class="island-login__card" @submit.prevent="submitLoginAction">
         <div class="island-login__card-brand">
-          <strong>Q信</strong>
+          <img class="island-brand-logo island-brand-logo--large" :src="assets.aiRobot" alt="Q信 Logo" />
           <span>MyChat</span>
           <small>{{ loginModeSubtitle }}</small>
         </div>
