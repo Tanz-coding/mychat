@@ -43,6 +43,37 @@ ensureCoreSchema().catch((error) => {
 });
 
 const enableConfigApi = process.env.ENABLE_CONFIG_API === 'true';
+const isElectronRuntime = process.env.ELECTRON_RUNTIME === 'true';
+const desktopClients = new Map();
+const desktopClientTtlMs = 45 * 1000;
+const desktopBackendIdleMs = Number(process.env.DESKTOP_BACKEND_IDLE_MS || 5 * 60 * 1000);
+let lastDesktopClientSeenAt = Date.now();
+let shutdownStarted = false;
+
+function isLocalRequest(req) {
+  const address = String(req.ip || req.connection.remoteAddress || '').replace('::ffff:', '');
+  return address === '127.0.0.1' || address === '::1' || address === 'localhost';
+}
+
+function cleanupDesktopClients(now = Date.now()) {
+  desktopClients.forEach((value, key) => {
+    if (now - value.seenAt > desktopClientTtlMs) {
+      desktopClients.delete(key);
+    }
+  });
+}
+
+function shutdownDesktopBackend(reason) {
+  if (shutdownStarted) {
+    return;
+  }
+  shutdownStarted = true;
+  console.info(`桌面端内置后端退出: ${reason}`);
+  server.close(() => {
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(0), 1500).unref();
+}
 
 const uploadConfig = (config && config.upload) || {};
 const uploadRoot = process.env.UPLOAD_ROOT
@@ -145,6 +176,44 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
+app.post('/api/desktop/heartbeat', (req, res) => {
+  if (!isElectronRuntime || !isLocalRequest(req)) {
+    return res.status(404).json({ message: 'Not found' });
+  }
+  const clientId = String((req.body && req.body.clientId) || '').trim();
+  if (!clientId) {
+    return res.status(400).json({ message: 'clientId required' });
+  }
+  const now = Date.now();
+  desktopClients.set(clientId, {
+    pid: req.body && req.body.pid,
+    seenAt: now
+  });
+  lastDesktopClientSeenAt = now;
+  cleanupDesktopClients(now);
+  res.json({ success: true, clients: desktopClients.size, idleMs: desktopBackendIdleMs });
+});
+
+app.post('/api/desktop/release', (req, res) => {
+  if (!isElectronRuntime || !isLocalRequest(req)) {
+    return res.status(404).json({ message: 'Not found' });
+  }
+  const clientId = String((req.body && req.body.clientId) || '').trim();
+  if (clientId) {
+    desktopClients.delete(clientId);
+  }
+  cleanupDesktopClients();
+  res.json({ success: true, clients: desktopClients.size });
+});
+
+app.post('/api/desktop/shutdown', (req, res) => {
+  if (!isElectronRuntime || !isLocalRequest(req)) {
+    return res.status(404).json({ message: 'Not found' });
+  }
+  res.json({ success: true });
+  setTimeout(() => shutdownDesktopBackend('manual'), 120).unref();
+});
+
 app.use('/api/news', newsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/friends', friendRouter);
@@ -199,6 +268,16 @@ app.use((err, req, res, next) => {
 const PORT=Number(process.env.PORT || 3000);
 io.attach(server);
 
+if (isElectronRuntime) {
+  setInterval(() => {
+    const now = Date.now();
+    cleanupDesktopClients(now);
+    if (!desktopClients.size && now - lastDesktopClientSeenAt > desktopBackendIdleMs) {
+      shutdownDesktopBackend('idle');
+    }
+  }, 30000).unref();
+}
+
 server.on('error', (error) => {
   console.error('服务器启动失败:', error && error.stack ? error.stack : error);
   process.exitCode = 1;
@@ -206,6 +285,15 @@ server.on('error', (error) => {
 
 //启动服务器
 server.listen(PORT,'0.0.0.0',()=> {
+  if (process.env.BACKEND_LOCK_FILE) {
+    try {
+      fs.unlinkSync(process.env.BACKEND_LOCK_FILE);
+    } catch (error) {
+      if (error && error.code !== 'ENOENT') {
+        console.error('释放桌面端后端启动锁失败:', error.message || error);
+      }
+    }
+  }
   const address=getNetworkIPv4().address;
   console.info("- Local:   http://localhost:"+PORT);
   console.info(`- Network: http://${address}:`+PORT)

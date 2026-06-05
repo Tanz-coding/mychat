@@ -15,6 +15,15 @@ const store = require('./store');
 const authService = require('./services/authService');
 const friendService = require('./services/friendService');
 
+function userRoom(userId) {
+  return `user:${userId}`;
+}
+
+async function socketsForUser(userId) {
+  const sockets = await io.in(userRoom(userId)).fetchSockets();
+  return sockets.filter((item) => item.user && Number(item.user.id) === Number(userId));
+}
+
 const util = {
   async login(payload, socket, isReconnect) {
     const source = payload || {};
@@ -54,7 +63,10 @@ const util = {
   },
 
   async loginSuccess(user, socket) {
+    const roomName = userRoom(user.id);
+    socket.join(roomName);
     socket.user = user;
+    socket.user.roomId = roomName;
     const data = {
       user,
       token: jwt.token({
@@ -67,14 +79,17 @@ const util = {
       friends: await friendService.listForUser(user.id)
     };
 
-    socket.broadcast.emit('system', user, 'join');
+    const sameUserSockets = await socketsForUser(user.id);
+    if (sameUserSockets.length <= 1) {
+      socket.broadcast.emit('system', socket.user, 'join');
+    }
     socket.removeAllListeners('message');
     socket.on('message', (from, to, message, type) => {
       if (!to || !to.type) {
         return;
       }
       if (to.type === 'user') {
-        socket.broadcast.to(to.roomId).emit('message', socket.user, to, message, type);
+        socket.to(userRoom(to.id)).emit('message', socket.user, to, message, type);
       }
       if (to.type === 'group') {
         socket.broadcast.emit('message', socket.user, to, message, type);
@@ -93,9 +108,7 @@ const util = {
         }
         const result = await friendService.requestFriend(socket.user.id, to.id);
         socket.emit('friend-request-sent', socket.user, to, result);
-        if (to.roomId) {
-          socket.broadcast.to(to.roomId).emit('friend-request', socket.user, to);
-        }
+        socket.to(userRoom(to.id)).emit('friend-request', socket.user, to);
       } catch (error) {
         socket.emit('friend-error', error.message || '好友申请失败');
       }
@@ -109,9 +122,7 @@ const util = {
         }
         const result = await friendService.acceptFriend(socket.user.id, to.id);
         socket.emit('friend-accepted', socket.user, to, result);
-        if (to.roomId) {
-          socket.broadcast.to(to.roomId).emit('friend-accepted', socket.user, to);
-        }
+        socket.to(userRoom(to.id)).emit('friend-accepted', socket.user, to);
       } catch (error) {
         socket.emit('friend-error', error.message || '好友通过失败');
       }
@@ -125,9 +136,7 @@ const util = {
         }
         await friendService.deleteFriend(socket.user.id, to.id);
         socket.emit('friend-deleted', socket.user, to);
-        if (to.roomId) {
-          socket.broadcast.to(to.roomId).emit('friend-deleted', socket.user, to);
-        }
+        socket.to(userRoom(to.id)).emit('friend-deleted', socket.user, to);
       } catch (error) {
         socket.emit('friend-error', error.message || '删除好友失败');
       }
@@ -152,8 +161,10 @@ const util = {
       }
     ];
     const clients = await io.fetchSockets();
+    const seen = new Set();
     clients.forEach((item) => {
-      if (item.user) {
+      if (item.user && !seen.has(String(item.user.id))) {
+        seen.add(String(item.user.id));
         users.push(item.user);
       }
     });
@@ -168,8 +179,19 @@ io.sockets.on('connection', (socket) => {
 
   socket.on('disconnect', (reason) => {
     if (socket.user && socket.user.id) {
-      socket.broadcast.emit('system', socket.user, 'logout');
-      store.saveUser(socket.user, 'logout');
+      const disconnectedUser = socket.user;
+      setTimeout(() => {
+        socketsForUser(disconnectedUser.id)
+          .then((items) => {
+            if (!items.length) {
+              socket.broadcast.emit('system', disconnectedUser, 'logout');
+              store.saveUser(disconnectedUser, 'logout');
+            }
+          })
+          .catch((error) => {
+            console.error('检查用户在线状态失败:', error && error.message ? error.message : error);
+          });
+      }, 250);
     }
     console.log(reason);
   });

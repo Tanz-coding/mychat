@@ -427,8 +427,8 @@
         about:{
           version:"v1.1.0",
           license:"MIT",
-          author:"tenz",
-          email:"3156212493@qq.com",
+          author:"今明",
+          email:"tenz_z@foxmail.com",
           repo:"https://github.com/Tanz-coding/mychat.git",
           unit:"华南师范大学计算机学院",
         },

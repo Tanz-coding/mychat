@@ -3,6 +3,7 @@
     <div class="title-bar__drag"></div>
     <div class="title-bar__title">{{ title }}</div>
     <nav class="title-bar__actions">
+      <button class="title-bar__btn title-bar__btn--wide" @click.stop="showBackendMenu" title="后端服务">后端</button>
       <button class="title-bar__btn" @click.stop="handleMinimize" title="最小化">&#x2013;</button>
   <button class="title-bar__btn" @click.stop="toggleMaximized" :title="maximized ? '还原' : '最大化'">
         <span v-if="maximized">&#x2752;</span>
@@ -47,6 +48,11 @@ export default {
     handleMinimize() {
       if (window.electron && typeof window.electron.minimize === 'function') {
         window.electron.minimize();
+      }
+    },
+    showBackendMenu() {
+      if (window.electron && typeof window.electron.showBackendMenu === 'function') {
+        window.electron.showBackendMenu();
       }
     },
     toggleMaximized() {
@@ -114,6 +120,12 @@ export default {
 
 .title-bar__btn:hover {
   background: rgba(255, 255, 255, 0.12);
+}
+
+.title-bar__btn--wide {
+  width: 48px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .title-bar__btn--close:hover {

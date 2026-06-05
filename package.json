@@ -7,7 +7,11 @@
     "express",
     "vue"
   ],
-  "author": "@tenz",
+  "author": "今明 <tenz_z@foxmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tanz-coding/mychat.git"
+  },
   "license": "MIT",
   "main": "electron/main.js",
   "scripts": {
@@ -55,6 +59,7 @@
       "dist/**/*",
       "server/**/*",
       "electron/**/*",
+      "assets/icon.ico",
       "package.json",
       "db/config.json",
       "db/news_schema.sql",
@@ -77,10 +82,12 @@
       "icon": "assets/icon.ico"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
-      "createDesktopShortcut": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Q信",
+      "license": "assets/installer-license.rtf"
     }
   },
   "eslintConfig": {

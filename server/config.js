@@ -1,6 +1,35 @@
 const fs = require('fs');
 const path = require('path');
 
+function loadDotEnv() {
+  const envPath = path.resolve(__dirname, '../.env');
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+  const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      return;
+    }
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) {
+      return;
+    }
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+    if (!key || process.env[key] !== undefined) {
+      return;
+    }
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  });
+}
+
+loadDotEnv();
+
 const DEFAULT_CONFIG_PATH = path.resolve(__dirname, '../db/config.json');
 const CONFIG_PATH = process.env.CONFIG_PATH
   ? path.resolve(process.env.CONFIG_PATH)
@@ -36,6 +65,7 @@ function applyEnvOverrides(raw) {
   clone.mysql = clone.mysql || {};
   clone.redis = clone.redis || {};
   clone.upload = clone.upload || {};
+  clone.ai = clone.ai || {};
 
   const mysqlEnv = {
     host: process.env.DB_HOST,
@@ -57,11 +87,26 @@ function applyEnvOverrides(raw) {
   const uploadEnv = {
     maxFileSizeMB: process.env.UPLOAD_MAX_MB && Number(process.env.UPLOAD_MAX_MB)
   };
+  const aiEnv = {
+    enabled: parseBooleanEnv(process.env.AI_ENABLED),
+    provider: process.env.AI_PROVIDER,
+    model: process.env.AI_MODEL || process.env.DEEPSEEK_MODEL,
+    endpoint: process.env.AI_ENDPOINT || process.env.DEEPSEEK_BASE_URL,
+    apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY
+  };
 
   clone.mysql = { ...clone.mysql, ...filterUndefined(mysqlEnv) };
   clone.redis = { ...clone.redis, ...filterUndefined(redisEnv) };
   clone.upload = { ...clone.upload, ...filterUndefined(uploadEnv) };
+  clone.ai = { ...clone.ai, ...filterUndefined(aiEnv) };
   return clone;
+}
+
+function parseBooleanEnv(value) {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
 }
 
 function filterUndefined(obj) {

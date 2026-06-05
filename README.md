@@ -183,17 +183,21 @@ npm run electron:build
 
 ## AI 助手与 API 配置
 
-项目内置 AI 助手（AiAssistant.vue），通过外部大模型 API（例如 SiliconFlow）实现智能推荐、总结和一键生成新闻文章并写入数据库。
+项目内置 AI 助手，通过 DeepSeek API 实现智能推荐、总结和一键生成新闻文章并写入数据库。
 
-### 前端 AI Key 配置
+### AI Key 配置
 
-首次使用 AI 助手时：
+后端会从项目根目录 `.env` 读取 AI 配置。示例：
 
-1. 打开应用右侧/顶部的 AI 助手面板。
-2. 进入“设置”或“配置”弹窗。
-3. 填入你的大模型服务 API Key（例如 SiliconFlow 的 Key），并保存。
+```env
+AI_ENABLED=true
+AI_PROVIDER=deepseek
+AI_MODEL=deepseek-v4-flash
+AI_ENDPOINT=https://api.deepseek.com
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+```
 
-> API Key 会保存在本地浏览器或 Electron 本地存储中，不会上传到服务器。请妥善保管，避免泄露。
+> `.env` 保存本地密钥，请勿提交到 GitHub。DeepSeek 官方文档的 OpenAI 兼容地址为 `https://api.deepseek.com`，聊天接口为 `/chat/completions`。
 
 ###  AI 典型用法
 

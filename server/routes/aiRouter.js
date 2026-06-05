@@ -6,7 +6,8 @@ const { query } = require('../mysql');
 
 const router = express.Router();
 
-const ARTICLE_INTENT_RE = /(生成|写|撰写|起草|发布|发送).{0,16}(文章|新闻|稿|文案)|文章.{0,16}(生成|发布|发送|草稿)/;
+const ARTICLE_INTENT_RE = /(生成|写|撰写|起草|发布|发送|发).{0,24}(文章|新闻|稿|文案|新闻中心)|(文章|新闻|稿|文案|新闻中心).{0,24}(生成|发布|发送|发|草稿|写入|上架)/;
+const DEFAULT_DEEPSEEK_ENDPOINT = 'https://api.deepseek.com';
 
 function publicAiConfig(ai = {}) {
   const provider = ai.provider || 'deepseek';
@@ -14,8 +15,8 @@ function publicAiConfig(ai = {}) {
     enabled: Boolean(ai.enabled),
     provider,
     providerLabel: provider === 'openai' ? 'OpenAI' : (provider === 'custom' ? '自定义' : 'DeepSeek'),
-    model: ai.model || (provider === 'openai' ? 'gpt-4.1' : 'deepseek-chat'),
-    endpoint: ai.endpoint || ai.baseUrl || '',
+    model: ai.model || (provider === 'openai' ? 'gpt-4.1' : 'deepseek-v4-flash'),
+    endpoint: ai.endpoint || ai.baseUrl || (provider === 'deepseek' ? DEFAULT_DEEPSEEK_ENDPOINT : ''),
     hasApiKey: Boolean(ai.apiKey)
   };
 }
@@ -40,6 +41,17 @@ async function localAnswer(user, prompt, newsItems = []) {
 
 function compactText(value, maxLength = 180) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+function stripMarkdown(value) {
+  return String(value || '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/`{1,3}([^`]+)`{1,3}/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s{0,3}[-*]\s+/gm, '')
+    .trim();
 }
 
 function getPromptTerms(prompt) {
@@ -104,9 +116,11 @@ function formatNewsContext(items) {
 function buildArticleDraft(prompt, items) {
   const source = items[0] || {};
   const categoryName = source.categoryName || '社区动态';
-  const cleanPrompt = compactText(prompt, 48)
-    .replace(/^(请|帮我|给我|根据|基于|生成|写|撰写|起草|发布|发送)+/, '')
-    .replace(/(文章|新闻|稿|文案|到新闻中心|发送|发布)+$/g, '')
+  const promptText = compactText(prompt, 120);
+  const topicMatch = promptText.match(/(?:主题|标题|题目)(?:是|为|：|:)\s*([^，。！？,;；\n]+)/);
+  const cleanPrompt = compactText(topicMatch ? topicMatch[1] : promptText, 48)
+    .replace(/^(请|帮我|给我|根据|基于|生成|写|撰写|起草|发布|发送|发|一条)+/, '')
+    .replace(/(文章|新闻|稿|文案|到新闻中心|发送|发布|发)+$/g, '')
     .trim();
   const topic = cleanPrompt || source.title || 'Q信社区新动态';
   const title = topic.length > 24 ? topic.slice(0, 24) : topic;
@@ -150,21 +164,23 @@ router.post('/chat', requireAuth, asyncHandler(async (req, res) => {
             {
               role: 'system',
               content: [
-                '你是 Q信 MyChat 的 AI 助手，回答要简洁、温暖、可执行。',
+                '你是 Q信 的 AI 助手，回答要简洁、温暖、可执行。',
                 '回答需要优先结合新闻中心数据库上下文；如果上下文为空，再说明当前没有足够新闻数据。',
-                '如果用户要求生成或发布文章，请给出清晰标题、摘要和正文结构。'
+                '如果用户要求生成或发布文章，请给出清晰标题、摘要和正文结构。',
+                '回答必须使用纯文本，不要使用 Markdown，不要输出星号、加粗标记或代码块。'
               ].join('\n')
             },
             { role: 'system', content: `新闻中心数据库上下文：\n${newsContext || '暂无可用新闻内容'}` },
             { role: 'user', content: prompt }
           ],
-          temperature: 0.7
+          temperature: 0.7,
+          thinking: { type: 'disabled' }
         })
       });
       if (response.ok) {
         const payload = await response.json();
         const answer = payload && payload.choices && payload.choices[0] && payload.choices[0].message
-          ? payload.choices[0].message.content
+          ? stripMarkdown(payload.choices[0].message.content)
           : '';
         if (answer) {
           return res.json({
@@ -201,13 +217,11 @@ router.put('/config', requireAuth, asyncHandler(async (req, res) => {
   const nextAi = {
     enabled: Boolean(body.enabled),
     provider,
-    model: String(body.model || '').trim() || (provider === 'openai' ? 'gpt-4.1' : 'deepseek-chat'),
-    endpoint: String(body.endpoint || body.baseUrl || '').trim()
+    model: String(body.model || '').trim() || (provider === 'openai' ? 'gpt-4.1' : 'deepseek-v4-flash'),
+    endpoint: String(body.endpoint || body.baseUrl || currentAi.endpoint || currentAi.baseUrl || (provider === 'deepseek' ? DEFAULT_DEEPSEEK_ENDPOINT : '')).trim()
   };
   if (body.apiKey) {
     nextAi.apiKey = String(body.apiKey).trim();
-  } else if (currentAi.apiKey) {
-    nextAi.apiKey = currentAi.apiKey;
   }
   const updated = updateConfig({ ai: nextAi });
   res.json(publicAiConfig(updated.ai || {}));

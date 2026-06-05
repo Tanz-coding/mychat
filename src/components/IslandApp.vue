@@ -4,7 +4,7 @@
       <aside class="island-login__rail">
         <div class="island-login__brand">
           <img class="island-brand-logo" :src="assets.aiRobot" alt="Q信 Logo" />
-          <span>MyChat</span>
+          <span>Q信</span>
         </div>
         <img class="island-login__avatar" :src="user.avatar" alt="登录用户头像" />
         <button
@@ -33,7 +33,7 @@
       >
         <div class="island-login__stage-brand">
           <img class="island-brand-logo island-brand-logo--small" :src="assets.aiRobot" alt="Q信 Logo" />
-          <strong>MyChat</strong>
+          <strong>Q信</strong>
         </div>
         <div class="island-characters-wrapper">
           <div class="island-characters-scene">
@@ -72,10 +72,10 @@
         </div>
       </div>
 
-      <form class="island-login__card" @submit.prevent="submitLoginAction">
-        <div class="island-login__card-brand">
+        <form class="island-login__card" @submit.prevent="submitLoginAction">
+          <div class="island-login__card-brand">
           <img class="island-brand-logo island-brand-logo--large" :src="assets.aiRobot" alt="Q信 Logo" />
-          <span>MyChat</span>
+            <span>Q信</span>
           <small>{{ loginModeSubtitle }}</small>
         </div>
 
@@ -118,6 +118,14 @@
               记住密码
             </button>
             <button type="button" class="island-link-button" @click="setLoginAction('reset')">忘记密码?</button>
+          </div>
+          <div class="island-server-connect">
+            <label class="island-field">
+              <span>后端服务地址</span>
+              <input v-model.trim="serverOriginInput" type="text" placeholder="http://127.0.0.1:3123" @keyup.enter="saveServerOrigin" />
+            </label>
+            <button type="button" class="island-soft-button" @click="saveServerOrigin">连接</button>
+            <small>{{ serverStatusText }}</small>
           </div>
         </div>
 
@@ -188,7 +196,7 @@
         <div v-else class="island-login__about-card">
           <img :src="assets.islandHero" alt="Q信小岛生活插画" />
           <div>
-            <h3>Q信 / MyChat</h3>
+            <h3>Q信</h3>
             <p>一款绿色、轻量、温暖的桌面即时通讯工具，包含聊天、新闻中心、AI 助手与管理后台。</p>
           </div>
         </div>
@@ -920,11 +928,11 @@
                   </label>
                   <label>
                     <span>模型</span>
-                    <input v-model.trim="aiConfig.model" type="text" placeholder="例如 deepseek-chat / gpt-4.1" />
+                    <input v-model.trim="aiConfig.model" type="text" placeholder="例如 deepseek-v4-flash / gpt-4.1" />
                   </label>
                   <label>
                     <span>接口地址</span>
-                    <input v-model.trim="aiConfig.endpoint" type="text" placeholder="https://api.deepseek.com/v1" />
+                    <input v-model.trim="aiConfig.endpoint" type="text" placeholder="https://api.deepseek.com" />
                   </label>
                   <label>
                     <span>API Key</span>
@@ -1378,7 +1386,7 @@
                 <div class="island-about-card__media">
                   <img :src="user.avatar" alt="Q信头像" />
                   <div>
-                    <h3>Q信 / MyChat <span>v{{ aboutInfo && aboutInfo.version ? aboutInfo.version : '1.0.0' }}</span></h3>
+                    <h3>Q信 <span>v{{ aboutInfo && aboutInfo.version ? aboutInfo.version : '1.0.0' }}</span></h3>
                     <p>Build {{ aboutInfo && aboutInfo.build ? aboutInfo.build : '2025.12.30' }}</p>
                   </div>
                 </div>
@@ -1396,9 +1404,9 @@
                 <div class="island-about-card__media">
                   <img :src="avatars.tealBoy" alt="作者头像" />
                   <div>
-                    <h3>开发者：小岛每一天</h3>
-                    <p>邮箱：island.dev@example.com</p>
-                    <p>地址：中国 · 杭州</p>
+                    <h3>开发者：今明</h3>
+                    <p>邮箱：tenz_z@foxmail.com</p>
+                    <p>地址：中国 · 广州</p>
                   </div>
                 </div>
               </article>
@@ -1409,7 +1417,7 @@
                   <svg height="48" width="48" viewBox="0 0 16 16" version="1.1" aria-hidden="true" style="border-radius:0;"><path fill="#1F2328" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.46-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
                   <div>
                     <h3 style="margin-bottom: 2px">GitHub</h3>
-                    <p style="font-size:12px; margin: 0;">https://github.com/island-everyday/qchat</p>
+                    <p style="font-size:12px; margin: 0;">https://github.com/Tanz-coding/mychat.git</p>
                   </div>
                 </div>
                 <p>欢迎 Star ⭐ 与贡献代码！</p>
@@ -1551,6 +1559,8 @@ export default {
       isConnect: false,
       socketConnecting: false,
       socketURL,
+      serverOriginInput: socketURL,
+      serverStatusText: "正在连接内置后端...",
       token: "",
       loginUserRaw: null,
       isAdmin: false,
@@ -1664,8 +1674,8 @@ export default {
       aiConfig: {
         enabled: false,
         provider: "deepseek",
-        model: "deepseek-chat",
-        endpoint: "https://api.deepseek.com/v1",
+        model: "deepseek-v4-flash",
+        endpoint: "https://api.deepseek.com",
         apiKey: "",
         hasApiKey: false
       },
@@ -1790,9 +1800,9 @@ export default {
         publish: "内容创作",
         admin: "系统管理",
         setting: "个人偏好",
-        about: "MyChat"
+        about: "Q信"
       };
-      return map[this.activePage] || "MyChat";
+      return map[this.activePage] || "Q信";
     },
     loginModeTitle() {
       const map = {
@@ -2058,6 +2068,15 @@ export default {
     }
   },
   mounted() {
+    this.refreshServerOrigin();
+    if (window.electron && typeof window.electron.onServerStatus === "function") {
+      this.removeServerStatusListener = window.electron.onServerStatus((payload) => {
+        if (payload && payload.message) {
+          this.serverStatusText = payload.message;
+          this.pulse(payload.message);
+        }
+      });
+    }
     this.loadAiThreads();
     this.loadSettings();
     window.setTimeout(() => {
@@ -2065,12 +2084,70 @@ export default {
     }, 300);
   },
   beforeDestroy() {
+    if (typeof this.removeServerStatusListener === "function") {
+      this.removeServerStatusListener();
+    }
     this.stopQrPolling();
     if (this.socket) {
       this.socket.close();
     }
   },
   methods: {
+    normalizeServerOrigin(origin) {
+      const raw = String(origin || "").trim().replace(/\/+$/, "");
+      if (!raw) {
+        return "http://127.0.0.1:3123";
+      }
+      return /^https?:\/\//i.test(raw) ? raw : "http://" + raw;
+    },
+    applyServerOrigin(origin, message) {
+      const normalized = this.normalizeServerOrigin(origin);
+      this.socketURL = normalized;
+      this.serverOriginInput = normalized;
+      if (this.$axios && this.$axios.defaults) {
+        this.$axios.defaults.baseURL = normalized;
+      }
+      if (this.socket) {
+        this.socket.close();
+        this.socket = null;
+      }
+      this.isConnect = false;
+      this.socketConnecting = false;
+      if (message) {
+        this.serverStatusText = message;
+      }
+      return normalized;
+    },
+    refreshServerOrigin() {
+      if (window.electron && typeof window.electron.getServerOrigin === "function") {
+        window.electron.getServerOrigin()
+          .then((payload) => {
+            const origin = payload && payload.origin ? payload.origin : this.socketURL;
+            this.applyServerOrigin(origin, "已准备连接 " + this.normalizeServerOrigin(origin));
+          })
+          .catch(() => {
+            this.applyServerOrigin(this.socketURL, "请确认后端服务地址");
+          });
+      } else {
+        this.applyServerOrigin(this.socketURL || window.location.origin, "已连接当前网页服务");
+      }
+    },
+    saveServerOrigin() {
+      const origin = this.normalizeServerOrigin(this.serverOriginInput);
+      if (window.electron && typeof window.electron.setServerOrigin === "function") {
+        window.electron.setServerOrigin(origin)
+          .then((payload) => {
+            const nextOrigin = payload && payload.origin ? payload.origin : origin;
+            this.applyServerOrigin(nextOrigin, "已切换到 " + nextOrigin);
+            this.pulse("后端地址已更新，请重新登录");
+          })
+          .catch((error) => {
+            this.serverStatusText = error && error.message ? error.message : "后端地址保存失败";
+          });
+        return;
+      }
+      this.applyServerOrigin(origin, "已切换到 " + origin);
+    },
     setLoginAction(mode) {
       this.loginMode = mode;
       if (mode !== "login") {
@@ -2902,7 +2979,7 @@ export default {
         this.aiConfig = {
           enabled: Boolean(payload.enabled),
           provider: payload.provider || "deepseek",
-          model: payload.model || "deepseek-chat",
+          model: payload.model || "deepseek-v4-flash",
           endpoint: payload.endpoint || "",
           apiKey: "",
           hasApiKey: Boolean(payload.hasApiKey)
@@ -3056,6 +3133,48 @@ export default {
       this.aiDraft = prompt;
       this.sendAiMessage();
     },
+    shouldAutoPublishAiDraft(text) {
+      return /(发到|发布到|发送到|写入|同步到|加入).{0,12}新闻中心|新闻中心.{0,12}(发布|发送|发出去|上架)/.test(String(text || ""));
+    },
+    stripAiMarkdown(text) {
+      return String(text || "")
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/\*(.*?)\*/g, "$1")
+        .replace(/__(.*?)__/g, "$1")
+        .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+        .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+        .replace(/^\s{0,3}[-*]\s+/gm, "")
+        .trim();
+    },
+    getAiArticleTopic(prompt) {
+      const text = this.stripAiMarkdown(prompt);
+      const topicMatch = text.match(/(?:主题|标题|题目)(?:是|为|：|:)?\s*([^，。！？,;；\n]+)/);
+      if (topicMatch && topicMatch[1]) {
+        return topicMatch[1].trim();
+      }
+      return text
+        .replace(/^(请|帮我|给我|根据|基于|生成|写|撰写|起草|发布|发送|发|一条)+/, "")
+        .replace(/(文章|新闻|稿|文案|到新闻中心|发到新闻中心|记得发到新闻中心|发送|发布|发)+/g, "")
+        .trim()
+        .slice(0, 28) || "Q信新闻";
+    },
+    buildAiDraftFromAnswer(answer, prompt) {
+      const cleanAnswer = this.stripAiMarkdown(answer);
+      const topic = this.getAiArticleTopic(prompt);
+      const titleMatch = cleanAnswer.match(/标题[：:]\s*([^\n。]+)/);
+      const summaryMatch = cleanAnswer.match(/摘要[：:]\s*([\s\S]*?)(?:\n|正文[：:]|$)/);
+      const content = cleanAnswer
+        .replace(/^好的[，,]?\s*/, "")
+        .replace(/将发布到新闻中心[：:]?\s*/g, "")
+        .trim();
+      return {
+        title: this.stripAiMarkdown(titleMatch && titleMatch[1] ? titleMatch[1] : topic).slice(0, 32),
+        summary: this.stripAiMarkdown(summaryMatch && summaryMatch[1] ? summaryMatch[1] : `围绕${topic}整理的一篇新闻中心发布稿。`).slice(0, 120),
+        categoryName: "社区动态",
+        tags: ["AI 生成", "新闻中心"],
+        content: content || `【导语】${topic}是 Q信新闻中心本次发布的重点内容。\n\n【正文】Q信致力于为用户提供清晰、温暖、可执行的沟通体验。围绕${topic}，平台将持续优化即时通讯、新闻发布和 AI 助手能力，让用户更高效地获取信息、整理内容并完成日常交流。\n\n【结语】欢迎大家继续关注 Q信新闻中心，了解更多产品动态与使用说明。`
+      };
+    },
     async sendAiMessage() {
       if (!this.aiDraft && !this.aiAttachments.length) {
         this.pulse("请输入问题");
@@ -3077,22 +3196,69 @@ export default {
       this.aiAttachments = [];
       try {
         const payload = await askAssistant(promptText, this.token);
+        const cleanAnswer = this.stripAiMarkdown(payload.answer || "AI 助手暂时没有返回内容。");
+        const shouldAutoPublish = this.shouldAutoPublishAiDraft(promptText);
+        let articleDraft = payload.articleDraft || (shouldAutoPublish ? this.buildAiDraftFromAnswer(cleanAnswer, promptText) : null);
+        let assistantText = cleanAnswer;
+        if (articleDraft && shouldAutoPublish) {
+          try {
+            const published = await this.publishAiArticleDraft(articleDraft);
+            assistantText = "已发布到新闻中心：" + published.title + "。你可以在新闻中心列表和管理后台中查看。";
+            articleDraft = null;
+          } catch (publishError) {
+            assistantText = "新闻稿已生成，但发布到新闻中心失败：" + (publishError.message || "请稍后重试") + "。你可以点击下方按钮再次发布。";
+          }
+        }
         this.aiMessages.push({
           id: Date.now() + 1,
           role: "assistant",
-          text: payload.answer || "AI 助手暂时没有返回内容。",
-          articleDraft: payload.articleDraft || null,
+          text: assistantText,
+          articleDraft,
           newsReferences: payload.newsReferences || []
         });
       } catch (error) {
         this.aiMessages.push({
           id: Date.now() + 1,
           role: "assistant",
-          text: error.message || "AI 助手暂时不可用，请稍后重试。"
+          text: this.stripAiMarkdown(error.message || "AI 助手暂时不可用，请稍后重试。")
         });
       }
       this.$set(this.aiHistory, this.activeAiThreadId, this.aiMessages.slice());
       this.persistAiThreads();
+    },
+    async publishAiArticleDraft(draft) {
+      if (!this.token) {
+        throw new Error("请先登录后再发布");
+      }
+      const fallbackCategory = this.newsCategories.indexOf(draft.categoryName) !== -1 ? draft.categoryName : "社区动态";
+      const articlePayload = {
+        title: this.stripAiMarkdown(draft.title || "Q信新闻"),
+        summary: this.stripAiMarkdown(draft.summary || ""),
+        content: this.stripAiMarkdown(draft.content || draft.summary || "这是一篇由 AI 助手生成的新闻稿。"),
+        categoryName: fallbackCategory,
+        coverImage: this.assets.publishPreview,
+        tags: Array.isArray(draft.tags) ? draft.tags.join("，") : (draft.tags || "AI 生成，新闻中心"),
+        status: "published"
+      };
+      const saved = await createNews(articlePayload, this.token);
+      const savedSource = saved && (saved.article || saved.item || saved.news || saved);
+      const localArticle = this.normalizeNewsItem(Object.assign({}, articlePayload, {
+        id: savedSource && savedSource.id ? savedSource.id : "local-ai-" + Date.now(),
+        category: fallbackCategory,
+        author: this.user.name,
+        authorName: this.user.name,
+        authorAvatar: this.user.avatar,
+        createdAt: new Date().toISOString(),
+        viewCount: 0
+      }), 0);
+      this.articles.unshift(localArticle);
+      this.currentArticleId = localArticle.id;
+      this.activeCategory = "全部";
+      this.newsKeyword = "";
+      this.refreshAdminFromLocal();
+      this.loadAdminData(true);
+      this.loadNewsFromApi();
+      return localArticle;
     },
     useAiArticleDraft(draft, publishNow) {
       if (!draft) {
@@ -3100,11 +3266,11 @@ export default {
       }
       const fallbackCategory = this.newsCategories.indexOf(draft.categoryName) !== -1 ? draft.categoryName : "社区动态";
       this.publishForm = {
-        title: draft.title || "",
-        tags: Array.isArray(draft.tags) ? draft.tags.join("，") : (draft.tags || ""),
+        title: this.stripAiMarkdown(draft.title || ""),
+        tags: this.stripAiMarkdown(Array.isArray(draft.tags) ? draft.tags.join("，") : (draft.tags || "")),
         category: fallbackCategory,
-        summary: draft.summary || "",
-        content: draft.content || "",
+        summary: this.stripAiMarkdown(draft.summary || ""),
+        content: this.stripAiMarkdown(draft.content || ""),
         visibility: "public"
       };
       this.editingArticleId = null;
@@ -3341,12 +3507,18 @@ export default {
     },
     syncSessionsFromUsers(users) {
       const normalized = [];
+      const currentById = {};
+      (this.sessions || []).forEach((session) => {
+        if (session && session.id) {
+          currentById[session.id] = session;
+        }
+      });
       users.forEach((item, index) => {
         if (!item || (this.loginUserRaw && item.id === this.loginUserRaw.id)) {
           return;
         }
         const id = item.id || String(index);
-        const existed = this.sessions.find((session) => session.id === id);
+        const existed = currentById[id];
         const isGroup = item.type === "group";
         const requestState = this.friendRequests[id];
         const isFriend = isGroup || Boolean(this.friendIds[id]);
@@ -3361,6 +3533,23 @@ export default {
           friend: isFriend,
           raw: Object.assign({}, item, { type: isGroup ? "group" : "user" })
         });
+      });
+      (this.sessions || []).forEach((session) => {
+        if (!session || !session.id || normalized.some((item) => item.id === session.id)) {
+          return;
+        }
+        const requestState = this.friendRequests[session.id];
+        const shouldKeep = session.friend || Boolean(this.friendIds[session.id]) || Boolean(requestState) || session.id === this.selectedSessionId;
+        if (!shouldKeep) {
+          return;
+        }
+        const kept = Object.assign({}, session);
+        if (kept.raw && kept.raw.type === "user") {
+          kept.friend = Boolean(this.friendIds[kept.id]);
+          kept.description = kept.friend ? "好友 · 离线" : (requestState === "sent" ? "好友申请中" : (requestState === "received" ? "收到好友申请" : "未添加好友"));
+          kept.time = kept.friend ? "离线" : kept.time;
+        }
+        normalized.push(kept);
       });
       this.sessions = normalized;
     },
@@ -3689,7 +3878,7 @@ export default {
     },
     exportMessages() {
       const backup = {
-        app: "Q信 MyChat",
+        app: "Q信",
         version: 1,
         exportedAt: new Date().toISOString(),
         user: this.user.name,

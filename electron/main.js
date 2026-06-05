@@ -1,6 +1,6 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, session, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
-const { fork } = require('child_process');
+const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 
@@ -10,7 +10,28 @@ let mainWindow = null;
 let backendProcess = null;
 let backendLogStream = null;
 let backendLogFile = '';
+let backendLockHandle = null;
+let backendLockFile = '';
+let tray = null;
+let heartbeatTimer = null;
+let desktopClientId = `${process.pid}-${Date.now()}`;
 let isQuitting = false;
+let activeServerOrigin = `http://127.0.0.1:${SERVER_PORT}`;
+
+function normalizeServerOrigin(origin) {
+  const raw = String(origin || '').trim().replace(/\/+$/, '');
+  if (!raw) {
+    return `http://127.0.0.1:${SERVER_PORT}`;
+  }
+  if (!/^https?:\/\//i.test(raw)) {
+    return `http://${raw}`;
+  }
+  return raw;
+}
+
+function getBundledServerOrigin() {
+  return `http://127.0.0.1:${SERVER_PORT}`;
+}
 
 function resolveProjectRoot() {
   if (app.isPackaged) {
@@ -25,6 +46,269 @@ function ensureDirectory(dirPath) {
   }
 }
 
+function getTrayIconPath() {
+  const candidates = [
+    path.join(resolveProjectRoot(), 'assets', 'icon.ico'),
+    path.join(process.resourcesPath || '', 'assets', 'icon.ico')
+  ];
+  return candidates.find((item) => item && fs.existsSync(item)) || '';
+}
+
+function getServerOriginConfigPath() {
+  return path.join(app.getPath('userData'), 'config', 'server-origin.json');
+}
+
+function getBackendLockFile() {
+  return path.join(app.getPath('userData'), 'backend.lock');
+}
+
+function loadServerOrigin() {
+  try {
+    const configPath = getServerOriginConfigPath();
+    if (!fs.existsSync(configPath)) {
+      return activeServerOrigin;
+    }
+    const payload = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const savedOrigin = normalizeServerOrigin(payload && payload.origin);
+    if (app.isPackaged && /^http:\/\/(127\.0\.0\.1|localhost):3000$/i.test(savedOrigin)) {
+      return getBundledServerOrigin();
+    }
+    return savedOrigin;
+  } catch (error) {
+    console.error('读取后端地址配置失败:', error);
+    return activeServerOrigin;
+  }
+}
+
+function saveServerOrigin(origin) {
+  const normalized = normalizeServerOrigin(origin);
+  const configPath = getServerOriginConfigPath();
+  ensureDirectory(path.dirname(configPath));
+  fs.writeFileSync(configPath, JSON.stringify({ origin: normalized }, null, 2), 'utf8');
+  activeServerOrigin = normalized;
+  return normalized;
+}
+
+function acquireBackendLock() {
+  backendLockFile = getBackendLockFile();
+  ensureDirectory(path.dirname(backendLockFile));
+
+  try {
+    backendLockHandle = fs.openSync(backendLockFile, 'wx');
+    fs.writeFileSync(backendLockHandle, String(process.pid), 'utf8');
+    return true;
+  } catch (error) {
+    if (error && error.code !== 'EEXIST') {
+      console.error('获取后端启动锁失败:', error);
+      return false;
+    }
+  }
+
+  try {
+    const stat = fs.statSync(backendLockFile);
+    const stale = Date.now() - stat.mtimeMs > 2 * 60 * 1000;
+    if (stale) {
+      fs.unlinkSync(backendLockFile);
+      backendLockHandle = fs.openSync(backendLockFile, 'wx');
+      fs.writeFileSync(backendLockHandle, String(process.pid), 'utf8');
+      return true;
+    }
+  } catch (error) {
+    console.error('检查后端启动锁失败:', error);
+  }
+
+  return false;
+}
+
+function releaseBackendLock() {
+  if (backendLockHandle !== null) {
+    try {
+      fs.closeSync(backendLockHandle);
+    } catch (error) {
+      console.error('关闭后端启动锁失败:', error);
+    }
+    backendLockHandle = null;
+  }
+  if (backendLockFile) {
+    try {
+      if (fs.existsSync(backendLockFile)) {
+        const owner = fs.readFileSync(backendLockFile, 'utf8').trim();
+        if (!owner || owner === String(process.pid)) {
+          fs.unlinkSync(backendLockFile);
+        }
+      }
+    } catch (error) {
+      console.error('释放后端启动锁失败:', error);
+    }
+  }
+  backendLockFile = '';
+}
+
+function setupBackendRequestRedirect() {
+  const redirectPrefixes = ['/api/', '/upload/', '/assets/images/', '/assets/files/', '/socket.io/'];
+  const filter = {
+    urls: ['file://*/*']
+  };
+
+  session.defaultSession.webRequest.onBeforeRequest(filter, (details, callback) => {
+    try {
+      const url = new URL(details.url);
+      const requestPath = decodeURIComponent(url.pathname || '');
+      const matched = redirectPrefixes.some((prefix) => requestPath === prefix.slice(0, -1) || requestPath.startsWith(prefix));
+      if (matched) {
+        callback({
+          redirectURL: `${activeServerOrigin}${requestPath}${url.search || ''}`
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('重定向后端请求失败:', error);
+    }
+    callback({});
+  });
+}
+
+function requestBackend(pathname, method = 'GET', payload, origin = activeServerOrigin) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(pathname, origin);
+    const body = payload ? JSON.stringify(payload) : '';
+    const request = http.request({
+      hostname: target.hostname,
+      port: target.port || (target.protocol === 'https:' ? 443 : 80),
+      path: `${target.pathname}${target.search || ''}`,
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      },
+      timeout: 2500
+    }, (res) => {
+      res.resume();
+      res.on('end', () => resolve(res.statusCode));
+    });
+    request.on('timeout', () => request.destroy(new Error('后端请求超时')));
+    request.on('error', reject);
+    if (body) {
+      request.write(body);
+    }
+    request.end();
+  });
+}
+
+function startBackendHeartbeat() {
+  stopBackendHeartbeat();
+  const send = () => {
+    requestBackend('/api/desktop/heartbeat', 'POST', {
+      clientId: desktopClientId,
+      pid: process.pid
+    }).catch(() => {});
+  };
+  send();
+  heartbeatTimer = setInterval(send, 15000);
+  if (heartbeatTimer && typeof heartbeatTimer.unref === 'function') {
+    heartbeatTimer.unref();
+  }
+}
+
+function stopBackendHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+function releaseBackendClient() {
+  return requestBackend('/api/desktop/release', 'POST', {
+    clientId: desktopClientId,
+    pid: process.pid
+  }).catch(() => {});
+}
+
+function stopBundledBackend() {
+  return requestBackend('/api/desktop/shutdown', 'POST', {
+    clientId: desktopClientId,
+    pid: process.pid
+  }, getBundledServerOrigin());
+}
+
+function buildBackendMenuTemplate() {
+  return [
+    {
+      label: '打开客户端',
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+          mainWindow.focus();
+        } else {
+          createMainWindow().catch((error) => console.error('打开窗口失败:', error));
+        }
+      }
+    },
+    {
+      label: '退出客户端',
+      click: async () => {
+        isQuitting = true;
+        await releaseBackendClient();
+        app.quit();
+      }
+    },
+    { type: 'separator' },
+    {
+      label: '停止后端服务',
+      click: () => {
+        stopBundledBackend()
+          .then(() => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('server:status', {
+                running: false,
+                message: '内置后端已停止'
+              });
+            }
+          })
+          .catch((error) => dialog.showErrorBox('停止后端失败', error.message || '请稍后重试'));
+      }
+    },
+    {
+      label: '退出并停止后端',
+      click: async () => {
+        isQuitting = true;
+        try {
+          await stopBundledBackend();
+        } catch (error) {
+          console.error('退出并停止后端失败:', error);
+        }
+        app.quit();
+      }
+    }
+  ];
+}
+
+function createTray() {
+  if (tray) {
+    return;
+  }
+  const iconPath = getTrayIconPath();
+  const image = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+  tray = new Tray(image);
+  tray.setToolTip('Q信 后端服务');
+  tray.setContextMenu(Menu.buildFromTemplate(buildBackendMenuTemplate()));
+  tray.on('double-click', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+function showBackendMenu() {
+  const menu = Menu.buildFromTemplate(buildBackendMenuTemplate());
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    menu.popup({ window: mainWindow });
+    return;
+  }
+  menu.popup();
+}
+
 function startBackend() {
   const projectRoot = resolveProjectRoot();
   const workingDirectory = app.isPackaged ? process.resourcesPath : projectRoot;
@@ -36,9 +320,9 @@ function startBackend() {
     }
   }
   if (!fs.existsSync(serverEntry)) {
-    dialog.showErrorBox('启动失败', '找不到后端入口文件 index.js');
-    app.quit();
-    return;
+    console.error('找不到后端入口文件 index.js');
+    releaseBackendLock();
+    return false;
   }
   const uploadRoot = path.join(app.getPath('userData'), 'upload');
   const uploadDir = path.join(uploadRoot, 'files');
@@ -76,48 +360,57 @@ function startBackend() {
     }
   };
 
-  backendProcess = fork(serverEntry, {
+  const backendEnv = {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: '1',
+    NODE_ENV: 'production',
+    PORT: String(SERVER_PORT),
+    ENABLE_CONFIG_API: 'true',
+    UPLOAD_ROOT: uploadRoot,
+    UPLOAD_DIR: uploadDir,
+    DATA_ROOT: dataRoot,
+    APP_ROOT: projectRoot,
+    CONFIG_PATH: configPath,
+    BACKEND_LOCK_FILE: backendLockFile,
+    ELECTRON_RUNTIME: 'true'
+  };
+
+  const backendStdio = backendLogStream
+    ? ['ignore', backendLogStream, backendLogStream]
+    : 'ignore';
+
+  backendProcess = spawn(process.execPath, [serverEntry], {
     cwd: workingDirectory,
-    env: {
-      ...process.env,
-      NODE_ENV: 'production',
-      PORT: String(SERVER_PORT),
-      ENABLE_CONFIG_API: 'true',
-      UPLOAD_ROOT: uploadRoot,
-      UPLOAD_DIR: uploadDir,
-      DATA_ROOT: dataRoot,
-      APP_ROOT: projectRoot,
-      CONFIG_PATH: configPath,
-      ELECTRON_RUNTIME: 'true'
-    },
-    silent: true
+    detached: true,
+    env: backendEnv,
+    stdio: backendStdio,
+    windowsHide: true
   });
 
-  if (backendProcess.stdout) {
-    backendProcess.stdout.on('data', (data) => writeBackendLog(data, 'stdout'));
-  }
-  if (backendProcess.stderr) {
-    backendProcess.stderr.on('data', (data) => writeBackendLog(data, 'stderr'));
-  }
+  backendProcess.unref();
 
   backendProcess.on('error', (error) => {
     writeBackendLog(error ? `${error.stack || error.message || String(error)}` : 'unknown error', 'stderr');
+    releaseBackendLock();
   });
 
   backendProcess.on('exit', (code, signal) => {
     backendProcess = null;
-    if (backendLogStream) {
-      backendLogStream.end();
-      backendLogStream = null;
-    }
     if (isQuitting) {
       return;
     }
     const reason = signal || code;
-    const logHint = backendLogFile ? `\n\n日志位置:\n${backendLogFile}` : '';
-    dialog.showErrorBox('服务器已退出', `内置服务已停止 (code: ${reason}). 应用将退出。${logHint}`);
-    app.quit();
+    console.error(`内置服务已停止 (code: ${reason})`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('server:status', {
+        running: false,
+        message: `内置服务已停止 (code: ${reason})`,
+        logFile: backendLogFile
+      });
+    }
   });
+
+  return true;
 }
 
 function waitForServerReady(url, maxRetry = 60, interval = 250) {
@@ -162,17 +455,23 @@ async function createMainWindow() {
     title: 'Q信',
     webPreferences: {
       preload: preloadPath,
+      additionalArguments: [`--qxin-server-origin=${activeServerOrigin}`],
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false
+      sandbox: false,
+      webSecurity: false
     }
   });
 
-  mainWindow.once('ready-to-show', () => {
+  const showWindow = () => {
     if (mainWindow) {
       mainWindow.show();
     }
-  });
+  };
+
+  mainWindow.once('ready-to-show', showWindow);
+  mainWindow.webContents.once('did-finish-load', showWindow);
+  setTimeout(showWindow, 1800);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -192,7 +491,18 @@ async function createMainWindow() {
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
+  const localIndex = path.join(resolveProjectRoot(), 'dist', 'index.html');
+  if (fs.existsSync(localIndex)) {
+    await mainWindow.loadFile(localIndex);
+    return;
+  }
   await mainWindow.loadURL(host);
+}
+
+function isServerReady(url) {
+  return waitForServerReady(url, 1, 1)
+    .then(() => true)
+    .catch(() => false);
 }
 
 function registerIpcHandlers() {
@@ -228,6 +538,27 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('app:quit-client', async () => {
+    isQuitting = true;
+    await releaseBackendClient();
+    app.quit();
+  });
+
+  ipcMain.handle('backend:stop', () => stopBundledBackend());
+
+  ipcMain.handle('app:quit-and-stop-backend', async () => {
+    isQuitting = true;
+    try {
+      await stopBundledBackend();
+    } finally {
+      app.quit();
+    }
+  });
+
+  ipcMain.handle('backend:show-menu', () => {
+    showBackendMenu();
+  });
+
   ipcMain.handle('app:restart', () => {
     isQuitting = true;
     app.relaunch();
@@ -236,20 +567,25 @@ function registerIpcHandlers() {
 
   ipcMain.handle('server:get-host', () => {
     return {
-      origin: `http://127.0.0.1:${SERVER_PORT}`
+      origin: activeServerOrigin,
+      bundledOrigin: getBundledServerOrigin()
+    };
+  });
+
+  ipcMain.handle('server:set-host', (_event, origin) => {
+    return {
+      origin: saveServerOrigin(origin),
+      bundledOrigin: getBundledServerOrigin()
     };
   });
 }
 
 function stopBackend() {
-  if (backendProcess && !backendProcess.killed) {
-    try {
-      backendProcess.kill('SIGTERM');
-    } catch (error) {
-      console.error('终止后端进程失败:', error);
-    }
-  }
+  const launchedBackend = Boolean(backendProcess);
   backendProcess = null;
+  if (!launchedBackend) {
+    releaseBackendLock();
+  }
   if (backendLogStream) {
     try {
       backendLogStream.end();
@@ -263,9 +599,59 @@ function stopBackend() {
 
 app.on('ready', async () => {
   try {
+    activeServerOrigin = loadServerOrigin();
+    setupBackendRequestRedirect();
     registerIpcHandlers();
-    startBackend();
-    await waitForServerReady(`http://127.0.0.1:${SERVER_PORT}/api/health`);
+    createTray();
+    const bundledOrigin = getBundledServerOrigin();
+    const bundledHealthUrl = `${bundledOrigin}/api/health`;
+    const shouldUseBundledBackend = activeServerOrigin === bundledOrigin;
+    let started = false;
+
+    if (shouldUseBundledBackend && await isServerReady(bundledHealthUrl)) {
+      console.info('内置后端已在运行，本客户端直接复用。');
+    } else if (shouldUseBundledBackend && acquireBackendLock()) {
+      started = startBackend();
+      if (!started) {
+        releaseBackendLock();
+      }
+    } else if (shouldUseBundledBackend) {
+      console.info('其他客户端正在启动内置后端，本客户端直接连接。');
+    }
+
+    if (shouldUseBundledBackend) {
+      waitForServerReady(bundledHealthUrl)
+        .then(() => {
+          releaseBackendLock();
+          startBackendHeartbeat();
+          if (backendLogStream) {
+            backendLogStream.end();
+            backendLogStream = null;
+          }
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('server:status', {
+              running: true,
+              message: started ? '内置后端已启动' : '已连接到正在运行的内置后端',
+              logFile: backendLogFile
+            });
+          }
+        })
+        .catch((error) => {
+          releaseBackendLock();
+          if (backendLogStream) {
+            backendLogStream.end();
+            backendLogStream = null;
+          }
+          console.error('内置后端未就绪，用户可在界面中手动连接:', error);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('server:status', {
+              running: false,
+              message: '内置后端暂未就绪，可手动填写后端服务地址',
+              logFile: backendLogFile
+            });
+          }
+        });
+    }
     await createMainWindow();
   } catch (error) {
     dialog.showErrorBox('启动失败', error.message || '未知错误');
@@ -282,6 +668,8 @@ app.on('activate', async () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopBackendHeartbeat();
+  releaseBackendClient();
   stopBackend();
 });
 

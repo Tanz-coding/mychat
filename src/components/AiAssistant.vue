@@ -93,7 +93,7 @@
           
           <div class="config-body">
             <div class="form-field">
-              <label class="field-label">SiliconFlow API Key</label>
+              <label class="field-label">DeepSeek API Key</label>
               <div class="field-input-wrapper">
                 <input 
                   :type="apiKeyVisible ? 'text' : 'password'" 
@@ -287,7 +287,7 @@ export default {
       userInput: '',
       messages: [],
       isThinking: false,
-      model: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
+      model: 'deepseek-v4-flash',
       categories: [],
       isDarkTheme: true,
       logoImage: aiLogo,
@@ -296,7 +296,7 @@ export default {
     };
   },
   mounted() {
-    const savedKey = localStorage.getItem('siliconflow_api_key');
+    const savedKey = localStorage.getItem('deepseek_api_key');
     const promptDisabled = localStorage.getItem('ai_config_prompt_disabled') === 'true';
 
     if (savedKey) {
@@ -343,7 +343,7 @@ export default {
 
     saveApiKey() {
       if (this.apiKey.trim()) {
-        localStorage.setItem('siliconflow_api_key', this.apiKey.trim());
+        localStorage.setItem('deepseek_api_key', this.apiKey.trim());
         this.showConfig = false;
       }
     },
@@ -486,7 +486,7 @@ Please ensure the JSON format is correct and contains only this JSON block, with
         ...history
       ];
 
-      const res = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+      const res = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -496,6 +496,7 @@ Please ensure the JSON format is correct and contains only this JSON block, with
           model: this.model,
           messages: messages,
           temperature: 0.7,
+          thinking: { type: 'disabled' },
           max_tokens: 2048,
           stream: true
         })

@@ -242,7 +242,11 @@ select:focus-visible {
 .island-sidebar__brand {
   position: relative;
   z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
   margin-bottom: 18px;
+  text-align: center;
   line-height: 1;
 }
 
@@ -262,10 +266,19 @@ select:focus-visible {
   object-fit: cover;
 }
 
-.island-sidebar__sub {
-  margin-top: 4px;
-  font-size: 13px;
+.island-sidebar__brand strong {
+  font-size: 18px;
   font-weight: 700;
+  color: #f8ffe9;
+  text-shadow: 0 2px 8px rgba(3, 28, 17, 0.28);
+}
+
+.island-sidebar__brand small {
+  max-width: 104px;
+  color: rgba(247, 255, 233, 0.76);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .island-sidebar__profile {
@@ -603,6 +616,13 @@ select:focus-visible {
   position: relative;
   z-index: 1;
   align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 118px;
+  padding: 24px 0 8px;
+  text-align: center;
   line-height: 1;
 }
 
@@ -613,8 +633,11 @@ select:focus-visible {
 
 .island-login__brand span {
   display: block;
-  margin-top: 4px;
+  margin-top: 8px;
+  max-width: 100%;
   font-weight: 700;
+  color: #f5fff1;
+  text-shadow: 0 2px 8px rgba(3, 28, 17, 0.3);
 }
 
 .island-brand-logo {
@@ -1102,6 +1125,24 @@ select:focus-visible {
 .island-login__fields {
   display: grid;
   gap: 16px;
+}
+
+.island-server-connect {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid rgba(91, 124, 82, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 252, 244, 0.72);
+}
+
+.island-server-connect small {
+  grid-column: 1 / -1;
+  color: var(--island-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .island-field__with-action {

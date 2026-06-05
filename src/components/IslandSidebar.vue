@@ -4,7 +4,8 @@
       <div class="island-sidebar__logo">
         <img :src="appLogo" alt="Q信 Logo" />
       </div>
-      <div class="island-sidebar__sub">MyChat</div>
+      <strong>Q信</strong>
+      <small>即时通讯与新闻平台</small>
     </div>
 
     <div class="island-sidebar__profile">
